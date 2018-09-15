@@ -1,9 +1,14 @@
 import os
 import cv2
+
 from numpy import *
 from scipy.ndimage import filters
-from PIL import Image
+from PIL import Image, ImageFilter
 from pylab import *
+'''
+Collection of computer vision functions. Primarily use cv2 & PIL with some numpy
+sprinkled in.
+'''
 
 
 def GetImList(path, extension):
@@ -23,8 +28,7 @@ def ImResize(im, baseWidth=300):
 	resized = im.resize((baseWidth, hsize), Image.ANTIALIAS)
 	resized.save('resized.jpg')
 
-	#result = Image.fromarray(resized)
-	#result = result.convert('RGB')
+	#result = Image.fromarray(resized).convert('RGB')
 	#result.save('resized.jpg')
 	return resized
 
@@ -41,8 +45,7 @@ def Histeq(im, nbr_bins=256):
 	im2 = interp(im.flatten(), bins[:-1], cdf)
 
 	reshaped = im2.reshape(im.shape)
-	#result = Image.fromarray(reshaped)
-	#result = result.convert('RGB')
+	#result = Image.fromarray(reshaped).convert('RGB')
 	#result.save('hist.jpeg')
 
 	return reshaped, cdf
@@ -71,8 +74,7 @@ def ComputeAverage(imlist):
 			print (imname + '...skipped')
 	averageim = averageim/len(imlist)
 
-	#result = Image.fromarray(array(averageim, 'uint8'))
-	#result = result.convert('RGB')
+	#result = Image.fromarray(array(averageim, 'uint8')).convert('RGB')
 	#result.save('averaged.jpeg')
 
 	return array(averageim, 'uint8')
@@ -80,10 +82,10 @@ def ComputeAverage(imlist):
 #--------------------------------------------------------------------------
 def pca(X):
 	""" 
-    Usage: X, matrix with training data stored as flattened arrays in rows
-    return: projection matrix (with important dimensions first), variance
-    and mean.
-    """
+	Usage: X, matrix with training data stored as flattened arrays in rows
+	return: projection matrix (with important dimensions first), variance
+	and mean.
+	"""
 	#get dimensions
 	num_data,dim = X.shape
 
@@ -171,9 +173,8 @@ def GaussianBlur(im, alpha=5, color=False):
 		im = array(Image.open(im).convert('L'))
 		im2 = filters.gaussian_filter(im, alpha)
 
-	#result = Image.fromarray(array(im2, 'uint8'))
-	#result = result.convert('RGB')
-	#result.save('gaussian_blur_{}.jpg'.format(alpha))
+	result = Image.fromarray(array(im2, 'uint8')).convert('RGB')
+	result.save('gaussian_blur_{}.jpg'.format(alpha))
 
 	return im2
 
@@ -193,3 +194,54 @@ def UnsharpMask(im, alpha=2):
 
 	return unsharp_im
 
+#--------------------------------------------------------------------------
+def FindOutline(im):
+	'''
+	returns outline of grayscale image w/ high background contrast
+	'''
+	im = Image.open(im).convert('L')
+	im2 = im.filter(ImageFilter.FIND_EDGES)
+	im2.save('outline.jpg')	
+
+#--------------------------------------------------------------------------
+def FindOutline_grad(im, filt='Laplacian'):
+	'''
+	uses gradient filter to detect object outlines. Includes option for 
+	Sobel filters
+	'''
+	im = cv2.imread(im, 0)
+
+	if filt == 'sobelx':
+		sobelx = cv2.Sobel(im, cv2.CV_64F, 1, 0, ksize=5)
+		x_im = Image.fromarray(sobelx).convert('RGB')
+		x_im.save('sobelx.jpg')
+	if filt == 'sobely':
+		sobely = cv2.Sobel(im, cv2.CV_64F, 0, 1, ksize=5)
+		y_im = Image.fromarray(sobely).convert('RGB')
+		y_im.save('sobely.jpg')
+	else:
+		lap = cv2.Laplacian(im, cv2.CV_64F)
+		lap_im = Image.fromarray(lap).convert('RGB')
+		lap_im.save('lap.jpg')
+
+def HoughLineDetection(im, threshold=100):
+	'''
+	lines detection using probabilistic Hough transform
+	'''
+	im = cv2.imread(im)
+	gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
+	edges = cv2.Canny(gray, 50, 150)
+	minLineLength = 100
+	maxLineGap = 10
+	lines = cv2.HoughLinesP(edges, 1 , pi/180, 
+		threshold, minLineLength, maxLineGap)
+
+	a,b,c = lines.shape
+	for i in range(a):
+		cv2.line(im, (lines[i][0][0], lines[i][0][1]), (lines[i][0][2], 
+			lines[i][0][3]), (0, 0, 255), 3, cv2.LINE_AA)
+
+	#cv2.imwrite('edges.jpg', edges)
+	cv2.imwrite('houghlines.jpg',im)
+
+HoughLineDetection('lines.jpg')
