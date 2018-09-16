@@ -1,16 +1,15 @@
 import os
 import cv2
 
+import matplotlib.pyplot as plt
 from numpy import *
-from scipy.ndimage import filters
+from scipy.ndimage import filters, measurements, morphology
 from PIL import Image, ImageFilter
 from pylab import *
 '''
 Collection of computer vision functions. Primarily use cv2 & PIL with some numpy
 sprinkled in.
 '''
-
-
 def GetImList(path, extension):
 	"""
 	Returns list of filenames for all images w/ extension (.jpg, .tif...) in directory
@@ -36,8 +35,8 @@ def ImResize(im, baseWidth=300):
 def Histeq(im, nbr_bins=256):
 	"""
 	Histogram equalization of grayscale image. Remaps image to new range via cdf
-	Usage: im = array(Image.open(img).convert('L'))
 	"""
+	im = array(Image.open(im).convert('L'))
 	imhist, bins = histogram(im.flatten(), nbr_bins, normed=True)
 	cdf = imhist.cumsum()
 	cdf = 255*cdf/cdf[-1] #normalization
@@ -45,8 +44,8 @@ def Histeq(im, nbr_bins=256):
 	im2 = interp(im.flatten(), bins[:-1], cdf)
 
 	reshaped = im2.reshape(im.shape)
-	#result = Image.fromarray(reshaped).convert('RGB')
-	#result.save('hist.jpeg')
+	result = Image.fromarray(reshaped).convert('RGB')
+	result.save('hist.jpeg')
 
 	return reshaped, cdf
 
@@ -173,10 +172,25 @@ def GaussianBlur(im, alpha=5, color=False):
 		im = array(Image.open(im).convert('L'))
 		im2 = filters.gaussian_filter(im, alpha)
 
-	result = Image.fromarray(array(im2, 'uint8')).convert('RGB')
-	result.save('gaussian_blur_{}.jpg'.format(alpha))
+	#result = Image.fromarray(array(im2, 'uint8')).convert('RGB')
+	#result.save('gaussian_blur_{}.jpg'.format(alpha))
 
 	return im2
+
+#--------------------------------------------------------------------------
+def Threshold(im):
+	'''
+	simple background separation
+	'''
+	im = GaussianBlur(im, 2)
+
+	gaus_thres = cv2.adaptiveThreshold(im, 255, 
+		cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+
+	result = Image.fromarray(array(gaus_thres, 'uint8')).convert('RGB')
+	result.save('thresholded.jpg')
+
+	return gaus_thres
 
 #--------------------------------------------------------------------------
 def UnsharpMask(im, alpha=2):
@@ -224,6 +238,7 @@ def FindOutline_grad(im, filt='Laplacian'):
 		lap_im = Image.fromarray(lap).convert('RGB')
 		lap_im.save('lap.jpg')
 
+#--------------------------------------------------------------------------
 def HoughLineDetection(im, threshold=100):
 	'''
 	lines detection using probabilistic Hough transform
@@ -244,4 +259,37 @@ def HoughLineDetection(im, threshold=100):
 	#cv2.imwrite('edges.jpg', edges)
 	cv2.imwrite('houghlines.jpg',im)
 
-HoughLineDetection('lines.jpg')
+#--------------------------------------------------------------------------
+def CountObjects(im, iterations=1):
+	'''
+	counts objects in image, gets distribution of object sizes
+	'''
+	#thresholds image, makes binary
+	im = array(Image.open(im).convert('L'))
+	im = 1*(im<128)
+	im = morphology.binary_opening(im, iterations=iterations)
+
+	labels, num_obj = measurements.label(im)
+	print('Number of objects: %s' %num_obj)
+	labelled_im = Image.fromarray(labels).convert('RGB')
+	labelled_im.save('labelled_im.jpg')
+
+	#get distribution of obj sizes
+	obj_sizes = {}
+	for obj in labels.ravel():
+		if obj in obj_sizes:
+			obj_sizes[obj]+=1
+		else:
+			obj_sizes[obj] = 1
+	del obj_sizes[0]
+
+	return labels, num_obj, obj_sizes
+
+#--------------------------------------------------------------------------
+def LabelCenterOfMass(im):
+	'''
+	WIP. Trying to get to return multiple centers 
+	'''
+	im = array(Image.open(im).convert('L'))
+	center_mass = measurements.center_of_mass(im)
+	
