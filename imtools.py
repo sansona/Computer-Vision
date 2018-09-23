@@ -8,7 +8,8 @@ from PIL import Image, ImageFilter
 from pylab import *
 '''
 Collection of computer vision functions. Primarily use cv2 & PIL with some numpy
-sprinkled in.
+sprinkled in. Most functions are in the form editted_image = function(im), where im 
+is the filename of the image. 
 '''
 def GetImList(path, extension):
 	"""
@@ -17,11 +18,14 @@ def GetImList(path, extension):
 	return [os.path.join(path,f) for f in os.listdir(path) if f.endswith(extension)]
 
 #--------------------------------------------------------------------------
+def PrintAsArray(im):
+	im = array(Image.open(im))
+	print(im)
+
+#--------------------------------------------------------------------------
 def ImResize(im, baseWidth=300):
-	"""
-	Resize image array
-	Usage: im = Image.open(img)
-	"""
+
+	im = Image.open(im)
 	wpercent  = (baseWidth/float(im.size[0]))
 	hsize = int(float(im.size[1]*float(wpercent)))
 	resized = im.resize((baseWidth, hsize), Image.ANTIALIAS)
@@ -30,6 +34,31 @@ def ImResize(im, baseWidth=300):
 	#result = Image.fromarray(resized).convert('RGB')
 	#result.save('resized.jpg')
 	return resized
+
+#--------------------------------------------------------------------------
+def GammaToLinear(im):
+	'''
+	source: https://www.pyimagesearch.com/2015/10/05/opencv-gamma-correction/
+	'''
+	im = array(Image.open(im))
+	invGamma = 1.0/2.2
+	table = array([((i/255.0)**invGamma)*255
+		for i in arange(0, 256)]).astype('uint8')
+
+	linear = cv2.LUT(im, table)
+	linear_im = Image.fromarray(linear).convert('RGB')
+	linear_im.save('linear.jpg')
+
+#--------------------------------------------------------------------------
+def LinearToGamma(im):
+	im = array(Image.open(im))
+	Gamma = 2.2
+	table = array([((i/255.0)**Gamma)*255
+		for i in arange(0, 256)]).astype('uint8')
+
+	gamma = cv2.LUT(im, table)
+	gamma_im = Image.fromarray(gamma).convert('RGB')
+	gamma_im.save('gamma.jpg')
 
 #--------------------------------------------------------------------------
 def Histeq(im, nbr_bins=256):
@@ -110,6 +139,13 @@ def pca(X):
 	return V,S,mean_X
 
 #--------------------------------------------------------------------------
+def Invert(im):
+	im = array(Image.open(im).convert('L'))
+	inv_im = 255 - im
+	inv_im = Image.fromarray(inv_im).convert('RGB')
+	inv_im.save('inverted.jpg')
+
+#--------------------------------------------------------------------------
 def Denoise(im,U_init,tolerance=0.1,tau=0.125,tv_weight=100):
 	"""
 	Rudin-Osher-Fatemi (ROF) denoising model
@@ -153,10 +189,10 @@ def Denoise(im,U_init,tolerance=0.1,tau=0.125,tv_weight=100):
 		#update of error
 		error = linalg.norm(U-Uold)/sqrt(n*m);
 
-	return U,im-U #denoised image and texture residual
+	return U, im-U #denoised image and texture residual
 
 #--------------------------------------------------------------------------
-def GaussianBlur(im, alpha=5, color=False):
+def GaussianBlur(im, alpha=2, color=False):
 	'''
 	Simple function to apply blur to image.
 	Usage: GaussianBlur(im)
@@ -172,25 +208,149 @@ def GaussianBlur(im, alpha=5, color=False):
 		im = array(Image.open(im).convert('L'))
 		im2 = filters.gaussian_filter(im, alpha)
 
-	#result = Image.fromarray(array(im2, 'uint8')).convert('RGB')
-	#result.save('gaussian_blur_{}.jpg'.format(alpha))
+	result = Image.fromarray(array(im2, 'uint8')).convert('RGB')
+	result.save('gaussian_blur_{}.jpg'.format(alpha))
 
 	return im2
 
 #--------------------------------------------------------------------------
-def Threshold(im):
+def BinaryThreshold(im):
 	'''
-	simple background separation
+	useful for background separation in images w/ simple, distinguishable background
 	'''
-	im = GaussianBlur(im, 2)
+	im = cv2.imread(im, 0)
 
-	gaus_thres = cv2.adaptiveThreshold(im, 255, 
-		cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+	ret, thresh = cv2.threshold(im, 128, 255, cv2.THRESH_BINARY)
+	thresh_im = Image.fromarray(array(thresh, 'uint8')).convert('RGB')
+	thresh_im.save('thresh.jpg')
 
-	result = Image.fromarray(array(gaus_thres, 'uint8')).convert('RGB')
-	result.save('thresholded.jpg')
+	return thresh
 
-	return gaus_thres
+#--------------------------------------------------------------------------
+def AdaptiveThreshold(im, method='Gaussian'):
+	'''
+	useful for images w/ more complicated backgrounds
+	'''
+	im = cv2.imread(im, 0)
+	if method != 'Gaussian':
+		thresh = cv2.adaptiveThreshold(im, 255, cv2.ADAPTIVE_THRESH_MEAN_C, \
+			cv2.THRESH_BINARY, 11, 2)
+	else:
+		thresh = cv2.adaptiveThreshold(im, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, \
+			cv2.THRESH_BINARY, 11, 2)
+	thresh_im = Image.fromarray(array(thresh, 'uint8')).convert('RGB')
+	thresh_im.save('adaptive_thresh.jpg')
+
+	return thresh
+
+#--------------------------------------------------------------------------
+def OtsuThreshold(im):
+	#use this for bimodal images
+	im = cv2.imread(im, 0)
+	ret, thresh = cv2.threshold(im, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+	thresh_im = Image.fromarray(array(thresh, 'uint8')).convert('RGB')
+	thresh_im.save('otsu_thresh.jpg')
+
+#--------------------------------------------------------------------------
+def FloodFill(im, n, threshold_method='adaptive'):
+	'''
+	floodfill function. Returns floodfill, inverted floodfill, and foreground mask.
+	Levers : n, threshold_method. Try different combinations to find one that works
+	'''
+	im = cv2.imread(im, 0)
+
+	if threshold_method == 'binary':
+		th, im = cv2.threshold(im, n, 255, cv2.THRESH_BINARY_INV)
+	elif threshold_method == 'adaptive':
+		im = cv2.adaptiveThreshold(im, n, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, \
+			cv2.THRESH_BINARY_INV, 11, 2)
+	elif threshold_method == 'otsu':
+		ret, im = cv2.threshold(im, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+
+	im_floodfill = im.copy()
+
+	h, w = im.shape[:2]
+	mask = np.zeros((h + 2, w + 2), np.uint8)
+
+	#floodfill from point (0, 0)
+	cv2.floodFill(im_floodfill, mask, (0, 0), 255)
+
+	#invert floodfilled image
+	im_floodfill_inv = cv2.bitwise_not(im_floodfill)
+
+	#combine the two images to get the foreground
+	fill_image = im | im_floodfill_inv
+
+	im_floodfill = Image.fromarray(array(im_floodfill, 'uint8')).convert('RGB')
+	im_floodfill_inv = Image.fromarray(array(im_floodfill_inv, 'uint8')).convert('RGB')
+	fill_image = Image.fromarray(array(fill_image, 'uint8')).convert('RGB')
+
+	im_floodfill.save('im_floodfill.jpg')
+	im_floodfill_inv.save('im_floodfill_inv.jpg')
+	fill_image.save('fill.jpg')
+
+	return im_floodfill, im_floodfill_inv, fill_image 
+
+#--------------------------------------------------------------------------
+def BlackToTransparent(im):
+	'''
+	converts black pixels to transparent for use in mask
+	'''
+	im = Image.open(im).convert('RGBA')
+
+	im_data = im.getdata()
+
+	newData = []
+	for item in im_data:
+		if item[0]==0 and item[1]==0 and item[2]==0:
+			newData.append((0,0,0,0))
+		else:
+			newData.append(item)
+
+	im.putdata(newData)
+	im.save('transparent_mask.png', 'PNG')
+
+#--------------------------------------------------------------------------
+def AlphaBlend(foreground_im, mask):
+	'''
+	overlays mask & image. Best use is transparent binary mask
+	'''
+	fore = cv2.imread(foreground_im)
+	mask = cv2.imread(mask)
+
+	blended = cv2.addWeighted(fore, 1.0, mask, 0.1, 0)
+
+	cv2.imwrite('blended.png', blended)
+
+
+#--------------------------------------------------------------------------
+def ContrastEnhance(im, brightness=32, contrast=20):
+	#suggest using CLAHE() instead in most cases
+	im = cv2.imread(im)
+
+	im = cv2.addWeighted(im, 1. +  contrast/127., im, 0, brightness-contrast)
+
+	cv2.imwrite('contrast_enhanced.jpg', im)
+
+#--------------------------------------------------------------------------
+def CLAHE(im):
+	'''
+	Contrast-limited adaptive histogram equalization function
+	'''
+	im = cv2.imread(im, 1)
+	#cv2.imshow('Original', im)
+
+	clahe = cv2.createCLAHE(clipLimit=3, tileGridSize=(8,8))
+
+	lab = cv2.cvtColor(im, cv2.COLOR_BGR2LAB)
+	l, a, b = cv2.split(lab)
+
+	l2 = clahe.apply(l)
+	lab = cv2.merge((l2, a, b))
+	im2 = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+	#cv2.imshow('CLAHE', im2)
+
+	cv2.imwrite('CLAHE.jpg', im2)
 
 #--------------------------------------------------------------------------
 def UnsharpMask(im, alpha=2):
@@ -229,14 +389,17 @@ def FindOutline_grad(im, filt='Laplacian'):
 		sobelx = cv2.Sobel(im, cv2.CV_64F, 1, 0, ksize=5)
 		x_im = Image.fromarray(sobelx).convert('RGB')
 		x_im.save('sobelx.jpg')
+		return sobelx
 	if filt == 'sobely':
 		sobely = cv2.Sobel(im, cv2.CV_64F, 0, 1, ksize=5)
 		y_im = Image.fromarray(sobely).convert('RGB')
 		y_im.save('sobely.jpg')
+		return sobely
 	else:
 		lap = cv2.Laplacian(im, cv2.CV_64F)
 		lap_im = Image.fromarray(lap).convert('RGB')
 		lap_im.save('lap.jpg')
+		return lap
 
 #--------------------------------------------------------------------------
 def HoughLineDetection(im, threshold=100):
@@ -288,8 +451,30 @@ def CountObjects(im, iterations=1):
 #--------------------------------------------------------------------------
 def LabelCenterOfMass(im):
 	'''
-	WIP. Trying to get to return multiple centers 
+	WIP. Currently detects overall center. Want to have it detect multiple 
 	'''
-	im = array(Image.open(im).convert('L'))
-	center_mass = measurements.center_of_mass(im)
-	
+	im = cv2.imread(im, 0)
+	ret, thresh = cv2.threshold(im, 127, 255, 0)
+	image, contours, hierarchy = cv2.findContours(thresh, 1, 2)
+
+	cnt = contours[0]
+	m = cv2.moments(cnt)
+	cx = int(m['m10']/m['m00'])
+	cy = int(m['m01']/m['m00'])
+	print(m)
+	print(cx, cy)
+
+#--------------------------------------------------------------------------
+
+'''
+Example workflow for contrast enhancement. Main lever is which FloodFill 
+algorithm to use.
+
+image = 'tea.jpeg'
+GammaToLinear(image)
+GaussianBlur('linear.jpg')
+FloodFill('gaussian_blur_2.jpg', 200, 'binary')
+AlphaBlend('linear.jpg', 'fill.jpg')
+CLAHE('blended.png')
+LinearToGamma('CLAHE.jpg')
+'''
