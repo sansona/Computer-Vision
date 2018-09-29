@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 import os
 import cv2
 
@@ -425,100 +426,5 @@ def UnsharpMask(im, alpha=2, save_im=False):
 		result.save('unsharp_mask_{}.tif'.format(alpha))
 
 	return unsharp_im
-
-#--------------------------------------------------------------------------
-def FindOutline(im):
-	'''
-	returns outline of grayscale image w/ high background contrast
-	'''
-	im = LoadImage(im, grayscale=True)
-	im2 = im.filter(ImageFilter.FIND_EDGES)
-	im2.save('outline.tif')	
-
-#--------------------------------------------------------------------------
-def FindOutline_grad(im, filt='Laplacian'):
-	'''
-	uses gradient filter to detect object outlines. Includes option for 
-	Sobel filters
-	'''
-	im = LoadImage(im, grayscale=True)
-
-	if filt == 'sobelx':
-		sobelx = cv2.Sobel(im, cv2.CV_64F, 1, 0, ksize=5)
-		x_im = Image.fromarray(sobelx).convert('RGB')
-		x_im.save('sobelx.tif')
-		return sobelx
-	if filt == 'sobely':
-		sobely = cv2.Sobel(im, cv2.CV_64F, 0, 1, ksize=5)
-		y_im = Image.fromarray(sobely).convert('RGB')
-		y_im.save('sobely.tif')
-		return sobely
-	else:
-		lap = cv2.Laplacian(im, cv2.CV_64F)
-		lap_im = Image.fromarray(lap).convert('RGB')
-		lap_im.save('lap.tif')
-		return lap
-
-#--------------------------------------------------------------------------
-def HoughLineDetection(im, threshold=100):
-	'''
-	lines detection using probabilistic Hough transform
-	'''
-	im = cv2.imread(im)
-	gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
-	edges = cv2.Canny(gray, 50, 150)
-	minLineLength = 100
-	maxLineGap = 10
-	lines = cv2.HoughLinesP(edges, 1 , pi/180, 
-		threshold, minLineLength, maxLineGap)
-
-	a,b,c = lines.shape
-	for i in range(a):
-		cv2.line(im, (lines[i][0][0], lines[i][0][1]), (lines[i][0][2], 
-			lines[i][0][3]), (0, 0, 255), 3, cv2.LINE_AA)
-
-	cv2.imwrite('houghlines.tif',im)
-
-#--------------------------------------------------------------------------
-def CountObjects(im, iterations=1):
-	'''
-	counts objects in image, gets distribution of object sizes
-	'''
-	#thresholds image, makes binary
-	im = LoadImage(im, grayscale=True)
-	im = 1*(im<128)
-	im = morphology.binary_opening(im, iterations=iterations)
-
-	labels, num_obj = measurements.label(im)
-	print('Number of objects: %s' %num_obj)
-	labelled_im = Image.fromarray(labels).convert('RGB')
-	labelled_im.save('labelled_im.tif')
-
-	#get distribution of obj sizes
-	obj_sizes = {}
-	for obj in labels.ravel():
-		if obj in obj_sizes:
-			obj_sizes[obj]+=1
-		else:
-			obj_sizes[obj] = 1
-	del obj_sizes[0]
-
-	return labels, num_obj, obj_sizes
-
-#--------------------------------------------------------------------------
-def LabelCenterOfMass(im):
-	'''
-	WIP. Currently detects overall center. Want to have it detect multiple 
-	'''
-	im = cv2.imread(im, 0)
-	ret, thresh = cv2.threshold(im, 127, 255, 0)
-	image, contours, hierarchy = cv2.findContours(thresh, 1, 2)
-
-	cnt = contours[0]
-	m = cv2.moments(cnt)
-	cx = int(m['m10']/m['m00'])
-	cy = int(m['m01']/m['m00'])
-	print(m)
-	print(cx, cy)
 
 #--------------------------------------------------------------------------

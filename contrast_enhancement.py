@@ -4,7 +4,7 @@ from image_enhancement_functions import (GammaToLinear, GaussianBlur,
 FloodFill, AlphaBlend, CLAHE, LinearToGamma)
 
 #Example pipeline for contrast enhancement. Main lever is threshold & threshold method
-image = 'tea2.jpeg'
+image = 'image_filename_here'
 lin = GammaToLinear(image)
 blur = GaussianBlur(lin)
 #try binary, adaptive, and otsu threholding
