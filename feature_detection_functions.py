@@ -18,16 +18,111 @@ def FindContours(im, save_im=False):
 	'''
 	im = LoadImage(im, grayscale=True)
 	ret, thresh = cv2.threshold(im, 127, 255, 0)
-	im, contours, hi = cv2.findContours(thresh, cv2.RETR_TREE, 
+	im, contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, 
 		cv2.CHAIN_APPROX_SIMPLE)
 
 	contour_im = cv2.drawContours(im, contours, -1, 
-		(0,255,0), 12)
+		(0,255,0), 5)
 
 	if save_im==True:
 		cv2.imwrite('contours.tif', contour_im)
 
-	return contour_im
+	return contour_im, contours, hierarchy
+
+#--------------------------------------------------------------------------
+def MaxApproxContour(all_contours, hierarchy):
+	'''
+	converts max absolute contour to approximate contour
+	'''
+	largest_contour = None 
+	largest_area = 0
+	min_area = 50
+	
+	#finds top left and bottom right corners through sum of coordinater
+	for contour in all_contours:
+		area = cv2.contourArea(contour)
+		if area > largest_area: 
+			largest_area = area
+			largest_contour = contour
+
+	#sets approximate contour
+	epsilon = 0.1*cv2.arcLength(largest_contour, True)
+	appr_contour = cv2.approxPolyDP(largest_contour, epsilon, True)
+
+	points = [] 
+	for i in range(4):
+		points.append((appr_contour[i][0][0], appr_contour[i][0][1]))
+
+	#print(points)
+	return points
+
+#--------------------------------------------------------------------------
+def DrawRectangle(im, corner_list, save_im=False):
+	'''
+	overlays rectangle on image given coordinates of corners
+	'''
+	top_left = None
+	bottom_right = None
+	minSum = 100000
+	maxSum = 0
+	for corner in corner_list:
+		if corner[0] + corner[1] < minSum:
+			minSum = corner[0] + corner[1]
+			top_left = corner
+		elif corner[0] + corner[1] > maxSum:
+			maxSum = corner[0] + corner[1]
+			bottom_right = corner
+	rect = cv2.rectangle(im, top_left, bottom_right, (0,0,255), 8)
+
+	print('Corner coordinates: (%s %s)' %(top_left, bottom_right))
+	if save_im==True:
+		cv2.imwrite('rectangle.tif', rect)
+
+	return rect, [top_left, bottom_right]
+
+#--------------------------------------------------------------------------
+def CropToRectangle(im, corner_coords, save_im=False):
+	'''
+	crops image to largest contour detected via. corner coordinates
+	'''
+	x_min = corner_coords[0][0]
+	y_min = corner_coords[0][1]
+	x_max = corner_coords[1][0]
+	y_max = corner_coords[1][1]
+
+	cropped = im[y_min:y_max, x_min:x_max]
+	if save_im==True:
+		cv2.imwrite('cropped_rect.tif', cropped)
+
+	return cropped
+
+#--------------------------------------------------------------------------
+def DrawGridOverImg(im, n=9, save_im=False):
+	'''
+	takes in cropped grid, overlays nxn grid
+	'''
+	im = LoadImage(im)
+	rgb_im = cv2.cvtColor(im, cv2.COLOR_GRAY2RGB)
+	width, height = im.shape[:2]
+	width_inc = int(width/n)
+	height_inc = int(height/n)
+
+	x_col = []
+	y_col = []
+	#makes list of all endpoints of lines
+	for i in range(1,n+1):
+		x_col.append([(width_inc*i, 0), (width_inc*i, height)])
+		y_col.append([(0, height_inc*i), (width, height_inc*i)])
+
+	x_arr = asarray(x_col)
+	y_arr = asarray(y_col)
+	lines = vstack((x_arr, y_arr)) #list of all lines
+
+	polylines = cv2.polylines(rgb_im, lines, False, (0,0,255), 5)
+	if save_im==True:
+		cv2.imwrite('polylines.tif', polylines)
+
+	return polylines
 
 #--------------------------------------------------------------------------
 def FilterSmallObjects(im):
@@ -124,7 +219,7 @@ def HoughLineDetection(im):
 	cv2.imwrite('houghlines.tif',im)
 
 #--------------------------------------------------------------------------
-def PHoughLineDetection(im, threshold=100):
+def PHoughLineDetection(im, threshold=50):
 	'''
 	lines detection using probabilistic Hough transform
 	'''

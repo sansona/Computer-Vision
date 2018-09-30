@@ -2,12 +2,19 @@
 from image_enhancement_functions import *
 from feature_detection_functions import *
 
-image = ###
-blurred = GaussianBlur(image)
-otsu = OtsuThreshold(blurred)
-inverted = Invert(otsu)
-contours = FindContours(inverted)
-blur2 = GaussianBlur(contours, alpha=3)
-BinaryThreshold(blur2, save_im=True)
+image = LoadImage('./test_images/sudoku.jpg')
 
-#next step: work on removing noise from thresholded image
+#preprocessing
+blurred = GaussianBlur(image, alpha=3)
+adaptive_thresh = AdaptiveThreshold(blurred)
+inv = Invert(adaptive_thresh)
+
+#use largest approximated contour to find and crop to outer perimeter
+cont_im, cont, hier = FindContours(inv)
+list_corners = MaxApproxContour(cont, hier)
+rect, corners = DrawRectangle(image, list_corners)
+crop_rect = CropToRectangle(inv, corners)
+
+#divides image into 9x9 grid, overlays grid on cropped image
+inv_crop = Invert(crop_rect)
+DrawGridOverImg(inv_crop, save_im=True)
