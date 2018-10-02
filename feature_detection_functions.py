@@ -2,7 +2,6 @@
 import os
 import cv2
 
-import matplotlib.pyplot as plt
 from numpy import *
 from scipy.ndimage import filters, measurements
 from skimage import morphology
@@ -118,12 +117,47 @@ def DrawGridOverImg(im, n=9, save_im=False):
 	y_arr = asarray(y_col)
 	lines = vstack((x_arr, y_arr)) #list of all lines
 
-	polylines = cv2.polylines(rgb_im, lines, False, (0,0,255), 5)
+	polylines = cv2.polylines(rgb_im, lines, False, (0,0,255), 8)
 	if save_im==True:
 		cv2.imwrite('polylines.tif', polylines)
 
 	return polylines
 
+#--------------------------------------------------------------------------
+def OCR(im, n=9):
+	im = LoadImage(im, grayscale=True) #load numpy array to get image sizing
+
+	width, height = im.shape[:2]
+	w = int(width/n)
+	h = int(height/n)
+
+	if w < h: #to avoid out of bounds error
+		h = w
+	else:
+		w = h
+
+	#crops images into individual grid squares
+	#TODO - run OCR on each, append to list
+	im = Image.fromarray(im)
+	for w_i in range(n):
+		for h_i in range(n):
+			square = (w_i*w, h_i*h, (w_i+1)*w, (h_i+1)*h)
+			output_im = im.crop(square)
+			output_im.save('square%s%s.tif' %(w_i,h_i))
+
+	path = os.getcwd()
+	filelist =[f for f in os.listdir(path) if f.endswith('.tif')]
+	for f in filelist:
+		os.remove(os.path.join(path, f))
+
+	'''
+	---example pytesseract code---
+	import pytesseract as pt
+	image = 'ocr.jpeg'
+	text = pt.image_to_string(Image.open(image))
+	print(text)
+	'''
+	
 #--------------------------------------------------------------------------
 def FilterSmallObjects(im):
 	im = LoadImage(im)

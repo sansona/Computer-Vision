@@ -1,8 +1,9 @@
+#!/usr/bin/python3
 
 from image_enhancement_functions import *
 from feature_detection_functions import *
 
-image = LoadImage('./test_images/sudoku.jpg')
+image = LoadImage('./test_images/sudoku2.jpg')
 
 #preprocessing
 blurred = GaussianBlur(image, alpha=3)
@@ -16,5 +17,6 @@ rect, corners = DrawRectangle(image, list_corners)
 crop_rect = CropToRectangle(inv, corners)
 
 #divides image into 9x9 grid, overlays grid on cropped image
-inv_crop = Invert(crop_rect)
-DrawGridOverImg(inv_crop, save_im=True)
+inv_crop = Invert(crop_rect, save_im=True)
+OCR(inv_crop)
+#DrawGridOverImg(inv_crop, save_im=True)
