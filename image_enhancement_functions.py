@@ -1,4 +1,3 @@
-#!/usr/bin/python3
 import os
 import cv2
 
@@ -13,19 +12,19 @@ sprinkled in. Most functions are in the form editted_image = function(im), where
 is either the filename of the image or the numpy pixel array  
 '''
 
-#--------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 def GetImList(path, extension):
 	"""
-	Returns list of filenames for all images w/ extension (.jpg, .tif...) in directory
+	Returns list of filenames for all images w/ extension (.jpg, .png...) in directory
 	"""
 	return [os.path.join(path,f) for f in os.listdir(path) if f.endswith(extension)]
 
-#--------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 def PrintAsArray(im):
 	im = array(Image.open(im))
 	print(im)
 
-#--------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 def LoadImage(im, grayscale=False):
 	'''
 	allows loading of both image files and image array data into functions 
@@ -46,7 +45,7 @@ def LoadImage(im, grayscale=False):
 			im = array(Image.open(im).convert('L'))
 			return im
 
-#--------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 def ImResize(im, baseWidth=300, save_im=False):
 	im = LoadImage(im)
 	im = Image.fromarray(im)
@@ -56,11 +55,11 @@ def ImResize(im, baseWidth=300, save_im=False):
 
 	if save_im == True:
 		result = Image.fromarray(resized).convert('RGB')
-		result.save('resized.tif')
+		result.save('resized.png')
 
 	return resized
 
-#--------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 def GammaToLinear(im, save_im=False):
 	'''
 	source: https://www.pyimagesearch.com/2015/10/05/opencv-gamma-correction/
@@ -74,11 +73,11 @@ def GammaToLinear(im, save_im=False):
 
 	if save_im == True:
 		linear_im = Image.fromarray(linear).convert('RGB')
-		linear_im.save('linear.tif')
+		linear_im.save('linear.png')
 
 	return linear
 
-#--------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 def LinearToGamma(im, save_im=False):
 	im = LoadImage(im)
 	Gamma = 2.2
@@ -90,11 +89,11 @@ def LinearToGamma(im, save_im=False):
 	if save_im == True:
 		gamma_im = Image.fromarray(gamma).convert('RGB')
 		#since usually final step, naming accordingly
-		gamma_im.save('enhanced.tif')
+		gamma_im.save('enhanced.png')
 
 	return gamma
 
-#--------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 def Histeq(im, nbr_bins=256, save_im=False):
 	"""
 	Histogram equalization of grayscale image. Remaps image to new range via cdf
@@ -109,11 +108,11 @@ def Histeq(im, nbr_bins=256, save_im=False):
 	reshaped = im2.reshape(im.shape)
 	if save_im == True:
 		result = Image.fromarray(reshaped).convert('RGB')
-		result.save('hist.tif')
+		result.save('hist.png')
 
 	return reshaped, cdf
 
-#--------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 def ContourPlot(im):
 	im = LoadImage(im, grayscale=True)
 	#im = array(Image.open(im).convert('L'))
@@ -124,116 +123,18 @@ def ContourPlot(im):
 	hist(im.flatten(), 128)
 	show()
 
-#--------------------------------------------------------------------------
-def ComputeAverage(imlist, save_im=False):
-	"""
-	Returns average of list of images - need to be same size
-	"""
-	averageim = array(Image.open(imlist[0]), 'f')
-
-	for imname in imlist[1:]:
-		try:
-			averageim =+ array(Image.open(imname))
-		except:
-			print (imname + '...skipped')
-	averageim = averageim/len(imlist)
-
-	if save_im == True:
-		result = Image.fromarray(array(averageim, 'uint8')).convert('RGB')
-		result.save('averaged.jpeg')
-
-	return array(averageim, 'uint8')
-
-#--------------------------------------------------------------------------
-def pca(X):
-	""" 
-	Usage: X, matrix with training data stored as flattened arrays in rows
-	return: projection matrix (with important dimensions first), variance
-	and mean.
-
-	credit: Programming Computer Vision w/ Python - Jan Erik Solem
-	"""
-	num_data,dim = X.shape
-	mean_X = X.mean(axis=0)
-	X = X - mean_X
-
-	if dim>num_data:
-		#PCA - compact trick used
-		M = dot(X,X.T) #covariance matrix
-		e,EV = linalg.eigh(M) #eigenvalues and eigenvectors
-		tmp = dot(X.T,EV).T #this is the compact trick
-		V = tmp[::-1] #reverse since last eigenvectors are the ones we want
-		S = sqrt(e)[::-1] #reverse since eigenvalues are in increasing order
-		for i in range(V.shape[1]):
-			V[:,i] /= S
-	else:
-		#PCA - SVD used
-		U,S,V = linalg.svd(X)
-		V = V[:num_data] # only makes sense to return the first num_data
-
-	#return the projection matrix, the variance and the mean
-	return V, S, mean_X
-
-#--------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 def Invert(im, save_im=False):
 	im = LoadImage(im, grayscale=True)
 	inv_arr = 255 - im
 	
 	if save_im == True:
 		inv_im = Image.fromarray(inv_arr).convert('RGB')
-		inv_im.save('inverted.tif')
+		inv_im.save('inverted.png')
 
 	return inv_arr
 
-#--------------------------------------------------------------------------
-def Denoise(im,U_init,tolerance=0.1,tau=0.125,tv_weight=100):
-	"""
-	Rudin-Osher-Fatemi (ROF) denoising model
-
-	Input: noisy input image (grayscale), initial guess for U, weight of
-	the TV-regularizing term, steplength, tolerance for stop criterion.
-
-	Output: denoised and detextured image, texture residual. 
-
-	credit: Programming Computer Vision w/ Python - Jan Erik Solem
-	"""
-
-	m,n = im.shape #size of noisy image
-
-	# nitialize
-	U = U_init
-	Px = im #x-component to the dual field
-	Py = im #y-component of the dual field
-	error = 1
-
-	while (error > tolerance):
-		Uold = U
-
-		#gradient of primal variable
-		GradUx = roll(U,-1,axis=1)-U #x-component of U's gradient
-		GradUy = roll(U,-1,axis=0)-U #y-component of U's gradient
-
-		#update the dual varible
-		PxNew = Px + (tau/tv_weight)*GradUx
-		PyNew = Py + (tau/tv_weight)*GradUy
-		NormNew = maximum(1,sqrt(PxNew**2+PyNew**2))
-
-		Px = PxNew/NormNew #update of x-component (dual)
-		Py = PyNew/NormNew #update of y-component (dual)
-
-		#update the primal variable
-		RxPx = roll(Px,1,axis=1) #right x-translation of x-component
-		RyPy = roll(Py,1,axis=0) #right y-translation of y-component
-
-		DivP = (Px-RxPx)+(Py-RyPy) #divergence of the dual field.
-		U = im + tv_weight*DivP #update of the primal variable
-
-		#update of error
-		error = linalg.norm(U-Uold)/sqrt(n*m);
-
-	return U, im-U #denoised image and texture residual
-
-#--------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 def GaussianBlur(im, alpha=2, color=False, save_im=False):
 	if color==True:
 		im = LoadImage(im)
@@ -248,11 +149,11 @@ def GaussianBlur(im, alpha=2, color=False, save_im=False):
 
 	if save_im == True:
 		result = Image.fromarray(array(im2, 'uint8')).convert('RGB')
-		result.save('gaussian_blur_{}.tif'.format(alpha))
+		result.save('gaussian_blur_{}.png'.format(alpha))
 	
 	return im2
 
-#--------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 def BinaryThreshold(im, save_im=False):
 	'''
 	useful for background separation in images w/ simple, distinguishable background
@@ -262,11 +163,11 @@ def BinaryThreshold(im, save_im=False):
 	
 	if save_im == True:
 		thresh_im = Image.fromarray(array(thresh, 'uint8')).convert('RGB')
-		thresh_im.save('thresh.tif')
+		thresh_im.save('thresh.png')
 
 	return thresh
 
-#--------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 def AdaptiveThreshold(im, method='Gaussian', save_im=False):
 	'''
 	useful for images w/ more complicated backgrounds
@@ -280,11 +181,11 @@ def AdaptiveThreshold(im, method='Gaussian', save_im=False):
 			cv2.THRESH_BINARY, 11, 2)
 	if save_im == True:
 		thresh_im = Image.fromarray(array(thresh, 'uint8')).convert('RGB')
-		thresh_im.save('adaptive_thresh.tif')
+		thresh_im.save('adaptive_thresh.png')
 
 	return thresh
 
-#--------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 def OtsuThreshold(im, save_im=False):
 	#use this for bimodal images
 	im = LoadImage(im, grayscale=True)
@@ -292,11 +193,11 @@ def OtsuThreshold(im, save_im=False):
 	
 	if save_im == True:
 		thresh_im = Image.fromarray(array(thresh, 'uint8')).convert('RGB')
-		thresh_im.save('otsu_thresh.tif')
+		thresh_im.save('otsu_thresh.png')
 
 	return thresh
 
-#--------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 def FloodFill(im, n=127, threshold_method='adaptive', save_im=False):
 	'''
 	floodfill function. Returns floodfill, inverted floodfill, and foreground mask.
@@ -332,15 +233,15 @@ def FloodFill(im, n=127, threshold_method='adaptive', save_im=False):
 	fill_image_arr = array(fill_image)
 
 	if save_im == True:
-		#im_floodfill.save('im_floodfill.tif')
-		#im_floodfill_inv.save('im_floodfill_inv.tif')
-		#fill_image.save('fill.tif')
-		fill_image.save('fill.tif')
+		#im_floodfill.save('im_floodfill.png')
+		#im_floodfill_inv.save('im_floodfill_inv.png')
+		#fill_image.save('fill.png')
+		fill_image.save('fill.png')
 
 
 	return fill_image_arr
 
-#--------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 def BlackToTransparent(im):
 	'''
 	converts black pixels to transparent for use in mask.
@@ -362,7 +263,7 @@ def BlackToTransparent(im):
 	im.putdata(new_pixels)
 	im.save('transparent_mask.png', 'PNG')
 
-#--------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 def AlphaBlend(foreground_im, mask, save_im=False):
 	'''
 	overlays mask & image. Best use is transparent binary mask
@@ -374,22 +275,22 @@ def AlphaBlend(foreground_im, mask, save_im=False):
 	blended = cv2.addWeighted(fore, 1.0, mask, 0.1, 0)
 
 	if save_im == True:
-		cv2.imwrite('blended.tif', blended)
+		cv2.imwrite('blended.png', blended)
 
 	return blended
 
-#--------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 def ContrastEnhance(im, brightness=32, contrast=20, save_im=False):
 	#suggest using CLAHE() instead in most cases
 	im = LoadImage(im)
 	contrast = cv2.addWeighted(im, 1. +  contrast/127., im, 0, brightness-contrast)
 
 	if save_im == True:
-		cv2.imwrite('contrast_enhanced.tif', contrast)
+		cv2.imwrite('contrast_enhanced.png', contrast)
 
 	return contrast
 
-#--------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 def CLAHE(im, save_im=False):
 	'''
 	Contrast-limited adaptive histogram equalization function
@@ -406,11 +307,11 @@ def CLAHE(im, save_im=False):
 	contrast = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
 	
 	if save_im == True:
-		cv2.imwrite('CLAHE.tif', contrast)
+		cv2.imwrite('CLAHE.png', contrast)
 
 	return contrast
 
-#--------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 def UnsharpMask(im, alpha=2, save_im=False):
 	'''
 	uses blurred image as mask to sharpen image
@@ -423,8 +324,8 @@ def UnsharpMask(im, alpha=2, save_im=False):
 	if save_im == True:
 		result = Image.fromarray(array(unsharp_im, 'uint8'))
 		result = result.convert('RGB')
-		result.save('unsharp_mask_{}.tif'.format(alpha))
+		result.save('unsharp_mask_{}.png'.format(alpha))
 
 	return unsharp_im
 
-#--------------------------------------------------------------------------
+#------------------------------------------------------------------------------

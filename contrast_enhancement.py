@@ -11,10 +11,10 @@ blur = GaussianBlur(lin)
 #try binary, adaptive, and otsu threholding
 fill = FloodFill(blur, threshold_method='adaptive') 
 AlphaBlend(lin, fill, save_im=True)
-contrast = CLAHE('blended.tif')
+contrast = CLAHE('blended.png')
 LinearToGamma(contrast, save_im=True)
 
-redundant_im = ['blended.tif', 'fill.tif', 'linear.tif']
+redundant_im = ['blended.png', 'fill.png', 'linear.png']
 for image in redundant_im:
 	if os.path.isfile(image):
 		os.remove(image)

@@ -14,9 +14,9 @@ inv = Invert(adaptive_thresh)
 cont_im, cont, hier = FindContours(inv)
 list_corners = MaxApproxContour(cont, hier)
 rect, corners = DrawRectangle(image, list_corners)
-crop_rect = CropToRectangle(inv, corners)
+crop_rect = CropImToRectangle(inv, corners)
 
 #divides image into 9x9 grid, overlays grid on cropped image
-inv_crop = Invert(crop_rect, save_im=True)
-OCR(inv_crop)
+inv_crop = Invert(crop_rect)
+OCROnTiles(inv_crop)
 #DrawGridOverImg(inv_crop, save_im=True)

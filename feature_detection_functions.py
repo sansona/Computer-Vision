@@ -1,4 +1,3 @@
-#!/usr/bin/python3
 import os
 import cv2
 
@@ -7,10 +6,11 @@ from scipy.ndimage import filters, measurements
 from skimage import morphology
 from PIL import Image, ImageFilter
 from pylab import *
+from pytesseract import image_to_string
 
 from image_enhancement_functions import LoadImage
 
-#--------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 def FindContours(im, save_im=False):
 	'''
 	used for detecting overall grid pattern
@@ -24,11 +24,11 @@ def FindContours(im, save_im=False):
 		(0,255,0), 5)
 
 	if save_im==True:
-		cv2.imwrite('contours.tif', contour_im)
+		cv2.imwrite('contours.png', contour_im)
 
 	return contour_im, contours, hierarchy
 
-#--------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 def MaxApproxContour(all_contours, hierarchy):
 	'''
 	converts max absolute contour to approximate contour
@@ -55,7 +55,7 @@ def MaxApproxContour(all_contours, hierarchy):
 	#print(points)
 	return points
 
-#--------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 def DrawRectangle(im, corner_list, save_im=False):
 	'''
 	overlays rectangle on image given coordinates of corners
@@ -75,12 +75,12 @@ def DrawRectangle(im, corner_list, save_im=False):
 
 	print('Corner coordinates: (%s %s)' %(top_left, bottom_right))
 	if save_im==True:
-		cv2.imwrite('rectangle.tif', rect)
+		cv2.imwrite('rectangle.png', rect)
 
 	return rect, [top_left, bottom_right]
 
-#--------------------------------------------------------------------------
-def CropToRectangle(im, corner_coords, save_im=False):
+#------------------------------------------------------------------------------
+def CropImToRectangle(im, corner_coords, save_im=False):
 	'''
 	crops image to largest contour detected via. corner coordinates
 	'''
@@ -91,11 +91,11 @@ def CropToRectangle(im, corner_coords, save_im=False):
 
 	cropped = im[y_min:y_max, x_min:x_max]
 	if save_im==True:
-		cv2.imwrite('cropped_rect.tif', cropped)
+		cv2.imwrite('cropped_rect.png', cropped)
 
 	return cropped
 
-#--------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 def DrawGridOverImg(im, n=9, save_im=False):
 	'''
 	takes in cropped grid, overlays nxn grid
@@ -119,52 +119,62 @@ def DrawGridOverImg(im, n=9, save_im=False):
 
 	polylines = cv2.polylines(rgb_im, lines, False, (0,0,255), 8)
 	if save_im==True:
-		cv2.imwrite('polylines.tif', polylines)
+		cv2.imwrite('polylines.png', polylines)
 
 	return polylines
 
-#--------------------------------------------------------------------------
-def OCR(im, n=9):
+#------------------------------------------------------------------------------
+def OCR(im):
+	#not working - probably need to remove borders. Either that, or train own classifier
+	im = LoadImage(im, grayscale=True)
+	im = im[35:-35][35:-35]
+	im = Image.fromarray(im)
+	text = image_to_string(im, config='outputbase digits')
+	if text == '':
+		print('Nothing detected')
+	else:
+		print(text)
+
+#------------------------------------------------------------------------------
+def OCROnTiles(im, n=9):
 	im = LoadImage(im, grayscale=True) #load numpy array to get image sizing
 
 	width, height = im.shape[:2]
 	w = int(width/n)
 	h = int(height/n)
 
-	if w < h: #to avoid out of bounds error
+	#to avoid out of bounds error, make square 
+	if w < h: 
 		h = w
 	else:
 		w = h
 
-	#crops images into individual grid squares
-	#TODO - run OCR on each, append to list
+	#crops images into individual grid squares, runs OCR on each
 	im = Image.fromarray(im)
 	for w_i in range(n):
 		for h_i in range(n):
-			square = (w_i*w, h_i*h, (w_i+1)*w, (h_i+1)*h)
+			square = (w_i*w+20, h_i*h+5, (w_i+1)*w, (h_i+1)*h) #crops to one square
 			output_im = im.crop(square)
-			output_im.save('square%s%s.tif' %(w_i,h_i))
 
+			#TODO: Fix this - find way of cropping out border for all images
+			w2, h2 = asarray(output_im).shape[:2]
+			digit_im = output_im.crop((w2/5,h2/5,w2*4/5,h2*4/5)) #crops out border
+			digit_im.save('square%s%s.png' %(w_i,h_i))
+
+			OCR('square%s%s.png' %(w_i,h_i))
+	
 	path = os.getcwd()
-	filelist =[f for f in os.listdir(path) if f.endswith('.tif')]
+	filelist =[f for f in os.listdir(path) if f.endswith('.png')]
 	for f in filelist:
 		os.remove(os.path.join(path, f))
 
-	'''
-	---example pytesseract code---
-	import pytesseract as pt
-	image = 'ocr.jpeg'
-	text = pt.image_to_string(Image.open(image))
-	print(text)
-	'''
-	
-#--------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 def FilterSmallObjects(im):
 	im = LoadImage(im)
 	filtered = morphology.remove_small_objects(im, 50000)
-	cv2.imwrite('filtered.tif', filtered)
+	cv2.imwrite('filtered.png', filtered)
 
-#--------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 def DetectBlob(im):
 	im = cv2.imread(im, cv2.IMREAD_GRAYSCALE)
 
@@ -183,9 +193,9 @@ def DetectBlob(im):
 	blob_im = cv2.drawKeypoints(im, keypoints, array([]),
 		(0,0,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
 
-	cv2.imwrite('blobs.tif', blob_im)
+	cv2.imwrite('blobs.png', blob_im)
 
-#--------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 def FindOutline(im):
 	'''
 	returns outline of grayscale image w/ high background contrast
@@ -193,9 +203,9 @@ def FindOutline(im):
 	im = LoadImage(im, grayscale=True)
 	im = Image.fromarray(im)
 	im2 = im.filter(ImageFilter.FIND_EDGES)
-	im2.save('outline.tif')	
+	im2.save('outline.png')	
 
-#--------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 def FindOutline_grad(im, filt='Laplacian'):
 	'''
 	uses gradient filter to detect object outlines. Includes option for 
@@ -206,20 +216,20 @@ def FindOutline_grad(im, filt='Laplacian'):
 	if filt == 'sobelx':
 		sobelx = cv2.Sobel(im, cv2.CV_64F, 1, 0, ksize=5)
 		x_im = Image.fromarray(sobelx).convert('RGB')
-		x_im.save('sobelx.tif')
+		x_im.save('sobelx.png')
 		return sobelx
 	if filt == 'sobely':
 		sobely = cv2.Sobel(im, cv2.CV_64F, 0, 1, ksize=5)
 		y_im = Image.fromarray(sobely).convert('RGB')
-		y_im.save('sobely.tif')
+		y_im.save('sobely.png')
 		return sobely
 	else:
 		lap = cv2.Laplacian(im, cv2.CV_64F)
 		lap_im = Image.fromarray(lap).convert('RGB')
-		lap_im.save('lap.tif')
+		lap_im.save('lap.png')
 		return lap
 
-#--------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 def HoughLineDetection(im):
 	im = LoadImage(im)
 	gray_im = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
@@ -229,7 +239,7 @@ def HoughLineDetection(im):
 	#	test cases
 	otsu_im = 255 - otsu_im
 
-	cv2.imwrite('otsu.tif', otsu_im)
+	cv2.imwrite('otsu.png', otsu_im)
 	kernel = ones((4,4), 'uint8')
 	eroded = cv2.erode(otsu_im, kernel, iterations=1)
 
@@ -250,9 +260,9 @@ def HoughLineDetection(im):
 
 		cv2.line(im,(x1,y1),(x2,y2),(0,0,255),2)
 
-	cv2.imwrite('houghlines.tif',im)
+	cv2.imwrite('houghlines.png',im)
 
-#--------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 def PHoughLineDetection(im, threshold=50):
 	'''
 	lines detection using probabilistic Hough transform
@@ -270,22 +280,6 @@ def PHoughLineDetection(im, threshold=50):
 		cv2.line(im, (lines[i][0][0], lines[i][0][1]), (lines[i][0][2], 
 			lines[i][0][3]), (0, 0, 255), 3, cv2.LINE_AA)
 
-	cv2.imwrite('Phoughlines.tif', im)
+	cv2.imwrite('Phoughlines.png', im)
 
-#--------------------------------------------------------------------------
-def LabelCenterOfMass(im):
-	'''
-	WIP. Currently detects overall center. Want to have it detect multiple 
-	'''
-	im = cv2.imread(im, 0)
-	ret, thresh = cv2.threshold(im, 127, 255, 0)
-	image, contours, hierarchy = cv2.findContours(thresh, 1, 2)
-
-	cnt = contours[0]
-	m = cv2.moments(cnt)
-	cx = int(m['m10']/m['m00'])
-	cy = int(m['m01']/m['m00'])
-	print(m)
-	print(cx, cy)
-
-#--------------------------------------------------------------------------
+#------------------------------------------------------------------------------
