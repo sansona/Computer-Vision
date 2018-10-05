@@ -10,24 +10,6 @@ from pytesseract import image_to_string
 
 from image_enhancement_functions import LoadImage
 
-#------------------------------------------------------------------------------
-
-
-class SudokuGrid:
-                # data structure to store values from OCR
-
-    def __init__(self, n=9):
-        self.grid = []
-        for x in range(1, n + 1):
-            for y in range(1, n + 1):
-                self.grid.append([(x, y), None])
-
-    def fill_value(self, position, value):
-        self.grid[position][1] = value
-
-    def solve(self):
-        # TODO: Implement algorithm to solve grid
-        print('WIP')
 
 #------------------------------------------------------------------------------
 
@@ -60,7 +42,7 @@ def MaxApproxContour(all_contours, hierarchy):
     largest_area = 0
     min_area = 50
 
-    # finds top left and bottom right corners through sum of coordinater
+    # finds top left and bottom right corners through sum of coordinator
     for contour in all_contours:
         area = cv2.contourArea(contour)
         if area > largest_area:
@@ -169,11 +151,13 @@ def OCR(im):
     else:
         print(text)
 
+    return int(text)
+
 #------------------------------------------------------------------------------
 
 
 def OCROnTiles(im, n=9):
-    im = LoadImage(im, grayscale=True)  # load numpy array to get image sizing
+    im = LoadImage(im, grayscale=True)
 
     width, height = im.shape[:2]
     w = int(width / n)
@@ -185,6 +169,8 @@ def OCROnTiles(im, n=9):
     else:
         w = h
 
+    grid = []
+
     # crops images into individual grid squares, runs OCR on each
     im = Image.fromarray(im)
     for w_i in range(n):
@@ -193,8 +179,11 @@ def OCROnTiles(im, n=9):
                       w, (h_i + 1) * h)  # crops to one square
             output_im = im.crop(square)
             output_im.save('square%s%s.png' % (w_i, h_i))
-
-            OCR('square%s%s.png' % (w_i, h_i))
+            '''
+            TODO: fix this so that it appends the OCR reading onto a list. Need to get OCR working first though.
+            '''
+            num = OCR('square%s%s.png' % (w_i, h_i))
+            grid.append(num)
 
     path = os.getcwd()
     filelist = [f for f in os.listdir(path) if f.endswith('.png')]
@@ -227,8 +216,8 @@ def DetectBlob(im):
 
     keypoints = detector.detect(im)
 
-    blob_im = cv2.drawKeypoints(im, keypoints, array([]),
-                                (0, 0, 255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+    blob_im = cv2.drawKeypoints(im, keypoints, array([]), (0, 0, 255),
+                                cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
 
     cv2.imwrite('blobs.png', blob_im)
 
@@ -280,7 +269,7 @@ def HoughLineDetection(im):
         gray_im, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
     # inverting & eroding seems to make edge detection work better in most
-    #	test cases
+    #   test cases
     otsu_im = 255 - otsu_im
 
     cv2.imwrite('otsu.png', otsu_im)
@@ -324,7 +313,9 @@ def PHoughLineDetection(im, threshold=50):
     a, b, c = lines.shape
     for i in range(a):
         cv2.line(im, (lines[i][0][0], lines[i][0][1]), (lines[i][0][2],
-                                                        lines[i][0][3]), (0, 0, 255), 3, cv2.LINE_AA)
+                                                        lines[i][0][3]),
+                 (0, 0, 255), 3,
+                 cv2.LINE_AA)
 
     cv2.imwrite('Phoughlines.png', im)
 
