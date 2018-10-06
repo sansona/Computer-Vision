@@ -11,8 +11,20 @@ class SudokuGrid:
         self.n = 9  # in case want to solve n != 9 puzzle
 
         # self.flat = []
-        test = '0030206009003050010018064000081029007000000080067' + \
-            '08200002609500800203009005010300'
+        '''
+        self.flat = [3, 0, 6, 5, 0, 8, 4, 0, 0, 5, 2,
+                     0, 0, 0, 0, 0, 0, 0, 0,
+                     8, 7, 0, 0, 0, 0, 3, 1,
+                     0, 0, 3, 0, 1, 0, 0, 8,
+                     0, 9, 0, 0, 8, 6, 3, 0,
+                     0, 5, 0, 5, 0, 0, 9, 0,
+                     6, 0, 0, 1, 3, 0, 0, 0,
+                     0, 2, 5, 0, 0, 0, 0, 0,
+                     0, 0, 0, 7, 4, 0, 0, 5,
+                     2, 0, 6, 3, 0, 0]
+        '''
+        test = '400000805030000000000700000020000060000080400' + \
+            '000010000000603070500200000104000000'
         self.flat = [int(x) for x in test]
 
     #--------------------------------------------------------------------------
@@ -24,9 +36,9 @@ class SudokuGrid:
 
     #--------------------------------------------------------------------------
 
-    def to_corners(self):
+    def to_corners(self, grid):
         # converts grid into 9x9 smaller corner grids
-        assert len(self.grid) == self.n
+        assert len(grid) == self.n
 
         left_cols = []
         center_cols = []
@@ -34,11 +46,11 @@ class SudokuGrid:
         # divides grid into 3 large columns
         for row, idx in product(range(self.n), repeat=2):
             if idx < self.n/3:
-                left_cols.append(self.grid[row][idx])
+                left_cols.append(grid[row][idx])
             elif idx >= self.n/3 and idx < 2*self.n/3:
-                center_cols.append(self.grid[row][idx])
+                center_cols.append(grid[row][idx])
             elif idx >= 2*self.n/3 and idx < self.n:
-                right_cols.append(self.grid[row][idx])
+                right_cols.append(grid[row][idx])
 
         # divides each of three col into 3 smaller corner grids
         self.corners = []
@@ -127,9 +139,10 @@ class SudokuGrid:
 
     #--------------------------------------------------------------------------
 
-    def is_solved_corner(self, hori_idx, vert_idx):
+    def is_solved_corner(self, grid, hori_idx, vert_idx):
         # should work. May need a bit more testing since untested on true grid
-        corner = self.corners[hori_idx][vert_idx]
+        corner_grid = self.to_corners(grid)
+        corner = corner_grid[hori_idx][vert_idx]
         return self.is_distinct_list(corner)
 
     #--------------------------------------------------------------------------
@@ -138,17 +151,13 @@ class SudokuGrid:
         # final check that puzzle is solved
         solved_cols_rows = True
         for i in range(self.n):
-            if (self.is_distinct_list(grid[i]) == True and
-                    self.is_solved_column(i) == True):
-                pass
-            else:
+            if (self.is_distinct_list(grid[i]) != True or
+                    self.is_solved_column(i) != True):
                 return False
 
         solved_corners = True
         for h, v in product(range(int(self.n/3)), repeat=2):
-            if self.is_solved_corner(h, v) == True:
-                pass
-            else:
+            if self.is_solved_corner(grid, h, v) != True:
                 return False
 
         return solved_cols_rows and solved_corners
@@ -161,8 +170,9 @@ class SudokuGrid:
 
    #---------------------------------------------------------------------------
 
-    def solve(self, board, empty=6):
+    def solve(self, board, empty):
         # recursive method for solving board. Not currently working
+        self.display_grid(board)
         print('empty:%s' % empty)
         if empty == 0:
             self.display_grid(board)
@@ -177,18 +187,9 @@ class SudokuGrid:
                 if self.is_solved(grid_copy) and self.solve(
                         grid_copy, empty - 1):
                     return True
+                # something in this line is causing the infinite loop. If try 9 before solve, will just replace w/ 0 and leave as is
                 self.replace_value(grid_copy, row, col, 0)
         return False
 
 
 #------------------------------------------------------------------------------
-
-b = SudokuGrid()
-grid = b.to_grid()
-z = b.display_grid(grid)
-c = b.to_corners()
-num_em = b.num_zeros()
-
-# for some reason, infinite looping.
-y = b.solve(grid, empty=num_em)
-print(y)
