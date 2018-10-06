@@ -1,4 +1,5 @@
 from itertools import product
+from copy import copy
 #------------------------------------------------------------------------------
 
 
@@ -10,8 +11,8 @@ class SudokuGrid:
         self.n = 9  # in case want to solve n != 9 puzzle
 
         # self.flat = []
-        test = '40000080503000000000070000002000006' + \
-            '0000080400000' + '010000000603070500200000104000000'
+        test = '0030206009003050010018064000081029007000000080067' + \
+            '08200002609500800203009005010300'
         self.flat = [int(x) for x in test]
 
     #--------------------------------------------------------------------------
@@ -92,14 +93,14 @@ class SudokuGrid:
 
     #--------------------------------------------------------------------------
 
-    def replace_value(self, row, col, value):
+    def replace_value(self, grid, row, col, value):
         # replaces value in self.grid given [x][y] position
         args = [row, col, value]
 
         assert (all(type(item) == int for item in args))
         assert (all(item <= self.n for item in args))
 
-        self.grid[row][col] = value
+        grid[row][col] = value
 
     #--------------------------------------------------------------------------
 
@@ -133,52 +134,61 @@ class SudokuGrid:
 
     #--------------------------------------------------------------------------
 
-    def is_solved(grid):
+    def is_solved(self, grid):
         # final check that puzzle is solved
-        solved_cols_rows = False
+        solved_cols_rows = True
         for i in range(self.n):
             if (self.is_distinct_list(grid[i]) == True and
                     self.is_solved_column(i) == True):
-                continue
+                pass
             else:
-                print('Row/col not solved')
                 return False
-                break
-            solved_cols_rows = True
 
-        solved_corners = False
+        solved_corners = True
         for h, v in product(range(int(self.n/3)), repeat=2):
             if self.is_solved_corner(h, v) == True:
-                continue
+                pass
             else:
-                print('Corner not solved')
                 return False
-                break
-            solved_corners = True
 
         return solved_cols_rows and solved_corners
 
    #---------------------------------------------------------------------------
 
-    def solve(self, board, empty):
+    def display_grid(self, grid):
+        for row in grid:
+            print(row)
+
+   #---------------------------------------------------------------------------
+
+    def solve(self, board, empty=6):
         # recursive method for solving board. Not currently working
+        print('empty:%s' % empty)
         if empty == 0:
+            self.display_grid(board)
             return self.is_solved(board)
         for row, col in product(range(self.n), repeat=2):
             val = board[row][col]
             if val != 0:
                 continue
-            grid_copy = board
-            for x in range(self.n):
-                if self.is_valid(grid_copy) and solve(grid_copy, empty - 1):
+            grid_copy = copy(board)
+            for x in range(1, self.n+1):
+                self.replace_value(grid_copy, row, col, x)
+                if self.is_solved(grid_copy) and self.solve(
+                        grid_copy, empty - 1):
                     return True
-                grid_copy[row][col] = 0
+                self.replace_value(grid_copy, row, col, 0)
         return False
 
 
 #------------------------------------------------------------------------------
+
 b = SudokuGrid()
 grid = b.to_grid()
+z = b.display_grid(grid)
 c = b.to_corners()
 num_em = b.num_zeros()
-print(b.solve(grid, num_em))
+
+# for some reason, infinite looping.
+y = b.solve(grid, empty=num_em)
+print(y)

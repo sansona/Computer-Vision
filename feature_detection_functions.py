@@ -169,7 +169,7 @@ def OCROnTiles(im, n=9):
     else:
         w = h
 
-    sudoku_grid = SudokuGrid()
+    #sudoku_grid = SudokuGrid()
 
     # crops images into individual grid squares, runs OCR on each
     im = Image.fromarray(im)
