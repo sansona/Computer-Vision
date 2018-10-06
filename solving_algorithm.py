@@ -1,13 +1,18 @@
+from itertools import product
 #------------------------------------------------------------------------------
+
+
 class SudokuGrid:
     # data structure to store values from OCR
     #--------------------------------------------------------------------------
 
     def __init__(self):
         self.n = 9  # in case want to solve n != 9 puzzle
-        # self.flat = []
 
-        self.flat = [x for x in range(1, self.n*self.n+1)]
+        # self.flat = []
+        test = '40000080503000000000070000002000006' + \
+            '0000080400000' + '010000000603070500200000104000000'
+        self.flat = [int(x) for x in test]
 
     #--------------------------------------------------------------------------
 
@@ -26,14 +31,13 @@ class SudokuGrid:
         center_cols = []
         right_cols = []
         # divides grid into 3 large columns
-        for row in range(self.n):
-            for idx in range(len(self.grid[row])):
-                if idx < 3:
-                    left_cols.append(self.grid[row][idx])
-                elif idx >= 3 and idx < 6:
-                    center_cols.append(self.grid[row][idx])
-                elif idx >= 6 and idx < self.n:
-                    right_cols.append(self.grid[row][idx])
+        for row, idx in product(range(self.n), repeat=2):
+            if idx < self.n/3:
+                left_cols.append(self.grid[row][idx])
+            elif idx >= self.n/3 and idx < 2*self.n/3:
+                center_cols.append(self.grid[row][idx])
+            elif idx >= 2*self.n/3 and idx < self.n:
+                right_cols.append(self.grid[row][idx])
 
         # divides each of three col into 3 smaller corner grids
         self.corners = []
@@ -55,10 +59,10 @@ class SudokuGrid:
 
     #--------------------------------------------------------------------------
 
-    def is_valid(self):
-        # checks that grid adheres to sudoku starting position
-        is_right_size = (len(self.flat) == self.n*self.n)
-        contain_only_ints = all(type(self.flat[i]) == int
+    def is_valid(self, grid):
+        # checks that grid adheres to sudoku starting position 0
+        is_right_size = (len(grid) == self.n*self.n)
+        contain_only_ints = all(type(grid[i]) == int
                                 for i in range(1, len(self.flat), 2))
         contains_legal_values = (all(val <= self.n for val in self.flat))
         # check for legal sudoku grid
@@ -66,6 +70,17 @@ class SudokuGrid:
                 and contain_only_ints
                 and contains_legal_values
                 and self.is_proper_shape())
+
+    #--------------------------------------------------------------------------
+
+    def num_zeros(self):
+        # return number empty cells (0s) in self.grid
+        num_zeros = 0
+        for row_idx in range(self.n):
+            if self.grid[row_idx].count(0) > 0:
+                num_zeros += self.grid[row_idx].count(0)
+
+        return num_zeros
 
     #--------------------------------------------------------------------------
 
@@ -90,7 +105,7 @@ class SudokuGrid:
 
     def is_distinct_list(self, inp_list):
         '''
-        used for checking distinct values in each row. For checking row, just call this w/ row as input. For columns & corners, use below functions since need more formatting 
+        used for checking distinct values in each row. For checking row, just call this w/ row as input. For columns & corners, use below functions since need more formatting
         '''
         assert len(inp_list) == self.n
         used_val = []
@@ -118,35 +133,52 @@ class SudokuGrid:
 
     #--------------------------------------------------------------------------
 
-    def is_solved(self):
+    def is_solved(grid):
         # final check that puzzle is solved
         solved_cols_rows = False
         for i in range(self.n):
-            if (self.is_solved_row(i) == True and
+            if (self.is_distinct_list(grid[i]) == True and
                     self.is_solved_column(i) == True):
                 continue
             else:
+                print('Row/col not solved')
                 return False
                 break
             solved_cols_rows = True
 
         solved_corners = False
-        for j in range(self.n):
-            for k in range(self.n):
-                if self.is_solved_corner(j, k) == True:
-                    continue
-                else:
-                    return False
-                    break
-                solved_corners = True
+        for h, v in product(range(int(self.n/3)), repeat=2):
+            if self.is_solved_corner(h, v) == True:
+                continue
+            else:
+                print('Corner not solved')
+                return False
+                break
+            solved_corners = True
 
         return solved_cols_rows and solved_corners
 
    #---------------------------------------------------------------------------
 
-    def solve(self):
-        # TODO: Implement algorithm to solve grid
-        print('WIP')
+    def solve(self, board, empty):
+        # recursive method for solving board. Not currently working
+        if empty == 0:
+            return self.is_solved(board)
+        for row, col in product(range(self.n), repeat=2):
+            val = board[row][col]
+            if val != 0:
+                continue
+            grid_copy = board
+            for x in range(self.n):
+                if self.is_valid(grid_copy) and solve(grid_copy, empty - 1):
+                    return True
+                grid_copy[row][col] = 0
+        return False
 
 
 #------------------------------------------------------------------------------
+b = SudokuGrid()
+grid = b.to_grid()
+c = b.to_corners()
+num_em = b.num_zeros()
+print(b.solve(grid, num_em))
