@@ -3,7 +3,7 @@
 from image_enhancement import *
 from feature_detection import *
 
-image = LoadImage('./test_images/sudoku2.jpg')
+image = LoadImage('./test_images/sudoku.jpg')
 
 # preprocessing - use generic image processing functions I made
 blurred = GaussianBlur(image, alpha=3)

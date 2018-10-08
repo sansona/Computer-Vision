@@ -10,7 +10,7 @@ from pytesseract import image_to_string
 from itertools import product
 
 from sudoku_grid import SudokuGrid
-from image_enhancement import LoadImage
+from image_enhancement import LoadImage, Invert
 
 
 #------------------------------------------------------------------------------
@@ -109,6 +109,17 @@ def CropImToRectangle(im, corner_coords, save_im=False):
 #------------------------------------------------------------------------------
 
 
+def CropToCenter(im, x_boundary, y_boundary):
+    im = asarray(im)
+    y, x = im.shape
+    y0 = y//2-(y_boundary//2)
+    x0 = x//2-(x_boundary//2)
+    return im[y0:y0+y_boundary, x0:y0+y_boundary]
+
+
+#------------------------------------------------------------------------------
+
+
 def DrawGridOverImg(im, n=9, save_im=False):
     '''
     takes in cropped grid, overlays nxn grid
@@ -145,9 +156,12 @@ def OCR(im):
     # classifier
     # TODO - figure out how to get this to work
     im = LoadImage(im, grayscale=True)
-    #im = im[35:-35][35:-35]
+
+    im = cv2.resize(im, None, fx=10, fy=10, interpolation=cv2.INTER_CUBIC)
     im = Image.fromarray(im)
-    text = image_to_string(im, config='outputbase digits')
+    text = image_to_string(
+        im, config='--psm 10 --oem 3 -c tessedit_char_whitelist=123456789')
+
     if text == '':
         print('Nothing detected')
     else:
@@ -180,10 +194,12 @@ def OCROnTiles(im, n=9):
     # crops images into individual grid squares, runs OCR on each
     im = Image.fromarray(im)
     for w_i, h_i in product(range(n), repeat=2):
-        square = (w_i * w + 20, h_i * h + 5, (w_i + 1) *
-                  w, (h_i + 1) * h)  # crops to one square
-        output_im = im.crop(square)
-        output_im.save('square%s%s.png' % (w_i, h_i))
+        square = (h_i * h, w_i * w, (h_i + 1) *
+                  h, (w_i + 1) * w)
+        tile = asarray(im.crop(square))  # crops to one square
+        # crops to center of tile
+        center_of_tile = Image.fromarray(CropToCenter(tile, 100, 100))
+        center_of_tile.save('square%s%s.png' % (w_i, h_i))
 
         num = OCR('square%s%s.png' % (w_i, h_i))
         if num == '':
@@ -192,12 +208,10 @@ def OCROnTiles(im, n=9):
             flat_grid.add_value(num)
 
     # delete image files once done running OCR on them
-
     path = os.getcwd()
     filelist = [f for f in os.listdir(path) if f.endswith('.png')]
     for f in filelist:
         os.remove(os.path.join(path, f))
-
     return flat_grid  # unformatted list of values detected
 
 #------------------------------------------------------------------------------
