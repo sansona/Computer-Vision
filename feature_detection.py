@@ -7,8 +7,10 @@ from skimage import morphology
 from PIL import Image, ImageFilter
 from pylab import *
 from pytesseract import image_to_string
+from itertools import product
 
-from image_enhancement_functions import LoadImage
+from sudoku_grid import SudokuGrid
+from image_enhancement import LoadImage
 
 
 #------------------------------------------------------------------------------
@@ -151,12 +153,16 @@ def OCR(im):
     else:
         print(text)
 
-    return int(text)
+    return text
 
 #------------------------------------------------------------------------------
 
 
 def OCROnTiles(im, n=9):
+    '''
+    divides grid into nxn, runs OCR on each, returns SudokuGrid list of 
+    detected values 
+    '''
     im = LoadImage(im, grayscale=True)
 
     width, height = im.shape[:2]
@@ -169,26 +175,43 @@ def OCROnTiles(im, n=9):
     else:
         w = h
 
-    #sudoku_grid = SudokuGrid()
+    flat_grid = SudokuGrid()
 
     # crops images into individual grid squares, runs OCR on each
     im = Image.fromarray(im)
-    for w_i in range(n):
-        for h_i in range(n):
-            square = (w_i * w + 20, h_i * h + 5, (w_i + 1) *
-                      w, (h_i + 1) * h)  # crops to one square
-            output_im = im.crop(square)
-            output_im.save('square%s%s.png' % (w_i, h_i))
-            '''
-            TODO: fix this so that it appends the OCR reading onto a list. Need to get OCR working first though.
-            '''
-            num = OCR('square%s%s.png' % (w_i, h_i))
-            grid.append(num)
+    for w_i, h_i in product(range(n), repeat=2):
+        square = (w_i * w + 20, h_i * h + 5, (w_i + 1) *
+                  w, (h_i + 1) * h)  # crops to one square
+        output_im = im.crop(square)
+        output_im.save('square%s%s.png' % (w_i, h_i))
+
+        num = OCR('square%s%s.png' % (w_i, h_i))
+        if num == '':
+            flat_grid.add_value(0)
+        elif type(num) == int:
+            flat_grid.add_value(num)
+
+    # delete image files once done running OCR on them
 
     path = os.getcwd()
     filelist = [f for f in os.listdir(path) if f.endswith('.png')]
     for f in filelist:
         os.remove(os.path.join(path, f))
+
+    return flat_grid  # unformatted list of values detected
+
+#------------------------------------------------------------------------------
+
+
+def SolveOCRGrid(OCR_flat):
+    '''
+    solves grid provided by OCR detection of postprocessed image
+
+    Input: SudokuGrid flat object
+    '''
+    grid = OCR_flat.to_grid()
+    OCR_flat.solve_grid()
+    OCR_flat.display_grid()
 
 #------------------------------------------------------------------------------
 
@@ -198,28 +221,6 @@ def FilterSmallObjects(im):
     filtered = morphology.remove_small_objects(im, 50000)
     cv2.imwrite('filtered.png', filtered)
 
-#------------------------------------------------------------------------------
-
-
-def DetectBlob(im):
-    im = cv2.imread(im, cv2.IMREAD_GRAYSCALE)
-
-    param = cv2.SimpleBlobDetector_Params()
-    param.filterByArea = True
-    param.minArea = 20
-    param.filterByCircularity = False
-    param.filterByColor = False
-    param.filterByConvexity = False
-    param.filterByInertia = False
-
-    detector = cv2.SimpleBlobDetector_create(param)
-
-    keypoints = detector.detect(im)
-
-    blob_im = cv2.drawKeypoints(im, keypoints, array([]), (0, 0, 255),
-                                cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-
-    cv2.imwrite('blobs.png', blob_im)
 
 #------------------------------------------------------------------------------
 

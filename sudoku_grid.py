@@ -1,35 +1,113 @@
-from itertools import product
-from copy import copy
 
-import time
+from itertools import product
+
+
+class SudokuGrid:
+    # a lot of this is slightly rewritten code from:
+    # https://www.geeksforgeeks.org/sudoku-backtracking-7/
+    #--------------------------------------------------------------------------
+
+    def __init__(self, n=9):
+        self.n = n  # in case want to solve n != 9 puzzle
+
+        self.flat = []
+
+    #--------------------------------------------------------------------------
+
+    def to_grid(self):
+        assert len(self.flat) == self.n*self.n
+        self.grid = [self.flat[i:i + self.n]
+                     for i in range(0, len(self.flat), self.n)]
+        return self.grid
+
+    #--------------------------------------------------------------------------
+
+    def add_value(self, val):
+        assert len(self.flat) <= self.n*self.n
+        self.flat.append(val)
+
+    #--------------------------------------------------------------------------
+
+    def display_grid(self):
+        for row in self.grid:
+            print(row)
+
+    #--------------------------------------------------------------------------
+
+    def locate_zero(self, location):
+        for row, col in product(range(self.n), repeat=2):
+            if self.grid[row][col] == 0:
+                location[0], location[1] = row, col
+                return True
+        return False
+
+    #--------------------------------------------------------------------------
+
+    def in_row(self, row, num):
+        for x in range(self.n):
+            if self.grid[row][x] == num:
+                return True
+        return False
+
+    #--------------------------------------------------------------------------
+
+    def in_col(self, col, num):
+        for y in range(self.n):
+            if self.grid[y][col] == num:
+                return True
+        return False
+
+    #--------------------------------------------------------------------------
+
+    def in_subgrid(self, row, col, num):
+        for x, y in product(range(int(self.n/3)), repeat=2):
+            if self.grid[x+row][y+col] == num:
+                return True
+        return False
+
+    #--------------------------------------------------------------------------
+
+    def is_legal_location(self, row, col, num):
+        return not self.in_row(row, num) and not \
+            self.in_col(col, num) and not \
+            self.in_subgrid(row-row % 3, col-col % 3, num)
+
+    #--------------------------------------------------------------------------
+
+    def solve_grid(self):
+        location = [0, 0]
+
+        if not self.locate_zero(location):
+            return True
+
+        row, col = location[0], location[1]
+
+        for num in range(1, self.n+1):
+            if self.is_legal_location(row, col, num):
+                self.grid[row][col] = num
+                if self.solve_grid():
+                    return True
+
+                self.grid[row][col] = 0
+
+        return False
 
 #------------------------------------------------------------------------------
 
 
-class SudokuGrid:
+# This structure & algorithm tends to get stuck in an infinite
+# loop in some situations. Plan on fixing it eventually out of
+# principle, but the above class provides a fully functional algorithm
+#------------------------------------------------------------------------------
+
+
+class OldSudokuGrid:
     # data structure to store values from OCR
     #--------------------------------------------------------------------------
 
-    def __init__(self):
-        self.n = 9  # in case want to solve n != 9 puzzle
-
-        # self.flat = []
-        '''
-        self.flat = [3, 0, 6, 5, 0, 8, 4, 0, 0, 5, 2,
-                     0, 0, 0, 0, 0, 0, 0, 0,
-                     8, 7, 0, 0, 0, 0, 3, 1,
-                     0, 0, 3, 0, 1, 0, 0, 8,
-                     0, 9, 0, 0, 8, 6, 3, 0,
-                     0, 5, 0, 5, 0, 0, 9, 0,
-                     6, 0, 0, 1, 3, 0, 0, 0,
-                     0, 2, 5, 0, 0, 0, 0, 0,
-                     0, 0, 0, 7, 4, 0, 0, 5,
-                     2, 0, 6, 3, 0, 0]
-        '''
-        test = '400000805030000000000700000020000060000080400' + \
-            '000010000000603070500200000104000000'
-        assert len(test) == self.n*self.n
-        self.flat = [int(x) for x in test]
+    def __init__(self, n=9):
+        self.n = n  # in case want to solve n != 9 puzzle
+        self.flat = []
 
     #--------------------------------------------------------------------------
 
@@ -99,17 +177,6 @@ class SudokuGrid:
 
     #--------------------------------------------------------------------------
 
-    def replace_value(self, grid, row, col, value):
-        # replaces value in self.grid given [x][y] position
-        args = [row, col, value]
-
-        assert (all(type(item) == int for item in args))
-        assert (all(item <= self.n for item in args))
-
-        grid[row][col] = value
-
-    #--------------------------------------------------------------------------
-
     def is_distinct_list(self, inp_list, check_zeros=False):
         '''
         used for checking distinct values in each row. For checking row, just call this w/ row as input. For columns & subgrids, use below functions since need more formatting
@@ -153,48 +220,44 @@ class SudokuGrid:
             elif self.is_solved_column(grid, i, check_zeros) == False:
                 print('Column not distinct')
                 return False
-        '''
-        #shouldn't be checking entire grid for distinct subgrids, only subgrid working in
+
+        # shouldn't be checking entire grid for distinct subgrids,
+        # only subgrid working in
         for h, v in product(range(int(self.n/3)), repeat=2):
             if self.is_solved_subgrid(grid, h, v, check_zeros) == False:
                 print('Subgrid not distinct')
                 return False
-        '''
+
         print('is solved')
         return True
 
-   #---------------------------------------------------------------------------
+    #--------------------------------------------------------------------------
 
     def display_grid(self, grid):
         for row in grid:
             print(row)
 
-   #---------------------------------------------------------------------------
+    #--------------------------------------------------------------------------
 
     def solve(self, board, empty):
         # recursive method for solving board. Not currently working
         self.display_grid(board)
         print('empty:%s' % empty)
-        time.sleep(0.5)
         if empty == 0:
             return self.is_solved(board, check_zeros=True)
         for row, col in product(range(self.n), repeat=2):
             val = board[row][col]
             if val != 0:
                 continue
-            grid_copy = copy(board)
-            while 0 in board[row]:
-                for x in range(1, self.n+1):
-                    self.replace_value(grid_copy, row, col, x)
-                    if self.is_solved(grid_copy) and \
-                            self.solve(grid_copy, empty-1):
-                        # something seems to be going on during the recursion
-                        print('recursion')
-                        return True
-                        print('replacing value')
-                    self.replace_value(grid_copy, row, col, 0)
+            grid_copy = board.copy()
+            for x in range(1, self.n+1):
+                grid_copy[row][col] = x
+                if self.is_solved(grid_copy) and \
+                        self.solve(grid_copy, empty-1):
+                    # something seems to be going on during the recursion
+                    return True
+                grid_copy[row][col] = x
 
         return False
 
-
-#------------------------------------------------------------------------------
+    #--------------------------------------------------------------------------
