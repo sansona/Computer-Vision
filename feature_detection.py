@@ -147,23 +147,34 @@ def DrawGridOverImg(im, n=9, save_im=False):
 
     return polylines
 
-
 #------------------------------------------------------------------------------
 
 
 def OCR(im):
-    # not working - probably need to remove borders. Either that, or train own
-    # classifier
-    # TODO - figure out how to get this to work
+    # not working, trying different preprocessing
     im = LoadImage(im, grayscale=True)
 
+    # preprocessing
+    '''
     im = cv2.resize(im, None, fx=10, fy=10, interpolation=cv2.INTER_CUBIC)
-    im = Image.fromarray(im)
+    kernel = ones((5, 5), float32)/25
+    blur = cv2.filter2D(im, -1, kernel)
+    blur_im = Image.fromarray(blur)
+    '''
+    # bounding box for preprocessing
+    cont_im, cont, hi = FindContours(im)
+    list_corn = MaxApproxContour(cont, hi)
+    rect, corners = DrawRectangle(im, list_corn)
+    cropped_rect = CropImToRectangle(im, corners)
+    kernel = ones((10, 10), float32)/25
+    blur = cv2.filter2D(cropped_rect, -1, kernel)
+
     text = image_to_string(
-        im, config='--psm 10 --oem 3 -c tessedit_char_whitelist=123456789')
+        blur, config='--psm 10 --oem 3' +
+        '-c tessedit_char_whitelist=123456789')
 
     if text == '':
-        print('Nothing detected')
+        print('None')
     else:
         print(text)
 
@@ -212,6 +223,7 @@ def OCROnTiles(im, n=9):
     filelist = [f for f in os.listdir(path) if f.endswith('.png')]
     for f in filelist:
         os.remove(os.path.join(path, f))
+
     return flat_grid  # unformatted list of values detected
 
 #------------------------------------------------------------------------------
