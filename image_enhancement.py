@@ -91,7 +91,7 @@ def GammaToLinear(im, save_im=False):
 #------------------------------------------------------------------------------
 
 
-def LinearToGamma(im, save_im=False):
+def LinearToGamma(im, name, save_im=False):
     im = LoadImage(im)
     Gamma = 2.2
     table = array([((i / 255.0)**Gamma) * 255
@@ -102,7 +102,7 @@ def LinearToGamma(im, save_im=False):
     if save_im == True:
         gamma_im = Image.fromarray(gamma).convert('RGB')
         # since usually final step, naming accordingly
-        gamma_im.save('enhanced.png')
+        gamma_im.save(str(name) + '_enhanced.png')
 
     return gamma
 
@@ -364,7 +364,7 @@ def UnsharpMask(im, alpha=2, save_im=False):
     '''
     uses blurred image as mask to sharpen image
     '''
-    im2 = GaussianBlur(im, alpha)  # mask
+    im2 = GaussianBlur(im)  # mask
     im = LoadImage(im, grayscale=True)
 
     unsharp_im = cv2.subtract(im, im2)

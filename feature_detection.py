@@ -10,7 +10,7 @@ from pytesseract import image_to_string
 from itertools import product
 
 from sudoku_grid import SudokuGrid
-from image_enhancement import LoadImage, Invert
+from image_enhancement import LoadImage, Invert, GaussianBlur
 
 
 #------------------------------------------------------------------------------
@@ -154,31 +154,35 @@ def OCR(im):
     # not working, trying different preprocessing
     im = LoadImage(im, grayscale=True)
 
-    # preprocessing
     '''
+    # preprocessing
     im = cv2.resize(im, None, fx=10, fy=10, interpolation=cv2.INTER_CUBIC)
     kernel = ones((5, 5), float32)/25
     blur = cv2.filter2D(im, -1, kernel)
     blur_im = Image.fromarray(blur)
     '''
     # bounding box for preprocessing
-    cont_im, cont, hi = FindContours(im)
+    im = cv2.resize(im, None, fx=1.5, fy=1.5, interpolation=cv2.INTER_CUBIC)
+    blur = cv2.blur(im, (5, 5))
+    cont_im, cont, hi = FindContours(blur)
     list_corn = MaxApproxContour(cont, hi)
-    rect, corners = DrawRectangle(im, list_corn)
-    cropped_rect = CropImToRectangle(im, corners)
-    kernel = ones((10, 10), float32)/25
-    blur = cv2.filter2D(cropped_rect, -1, kernel)
-
+    rect, corners = DrawRectangle(blur, list_corn)
+    cropped_rect = Image.fromarray(CropImToRectangle(blur, corners))
+    cropped_rect.save('cropped_rect.png')
     text = image_to_string(
-        blur, config='--psm 10 --oem 3' +
+        cropped_rect, config='--psm 10 --oem 3' +
         '-c tessedit_char_whitelist=123456789')
 
     if text == '':
         print('None')
     else:
         print(text)
+        exit()
 
     return text
+
+
+OCR('square00.jpg')
 
 #------------------------------------------------------------------------------
 
@@ -210,7 +214,7 @@ def OCROnTiles(im, n=9):
         tile = asarray(im.crop(square))  # crops to one square
         # crops to center of tile
         center_of_tile = Image.fromarray(CropToCenter(tile, 100, 100))
-        center_of_tile.save('square%s%s.png' % (w_i, h_i))
+        center_of_tile.save('square%s%s.png' % (w_i, h_i), dpi=(600, 600))
 
         num = OCR('square%s%s.png' % (w_i, h_i))
         if num == '':
