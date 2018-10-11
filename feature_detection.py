@@ -168,7 +168,6 @@ def OCR(im):
     list_corn = MaxApproxContour(cont, hi)
     rect, corners = DrawRectangle(blur, list_corn)
     cropped_rect = Image.fromarray(CropImToRectangle(blur, corners))
-    cropped_rect.save('cropped_rect.png')
     text = image_to_string(
         cropped_rect, config='--psm 10 --oem 3' +
         '-c tessedit_char_whitelist=123456789')
@@ -180,9 +179,6 @@ def OCR(im):
         exit()
 
     return text
-
-
-OCR('square00.jpg')
 
 #------------------------------------------------------------------------------
 
