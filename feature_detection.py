@@ -209,7 +209,9 @@ def OCROnTiles(im, n=9):
                   h, (w_i + 1) * w)
         tile = asarray(im.crop(square))  # crops to one square
         # crops to center of tile
-        center_of_tile = Image.fromarray(CropToCenter(tile, 100, 100))
+        nx, ny = tile.shape
+        center_of_tile = Image.fromarray(CropToCenter(tile, int(0.9*nx),
+                                                      int(0.9*ny)))
         center_of_tile.save('square%s%s.png' % (w_i, h_i), dpi=(600, 600))
 
         num = OCR('square%s%s.png' % (w_i, h_i))
@@ -219,11 +221,12 @@ def OCROnTiles(im, n=9):
             flat_grid.add_value(num)
 
     # delete image files once done running OCR on them
+    '''
     path = os.getcwd()
     filelist = [f for f in os.listdir(path) if f.endswith('.png')]
     for f in filelist:
         os.remove(os.path.join(path, f))
-
+    '''
     return flat_grid  # unformatted list of values detected
 
 #------------------------------------------------------------------------------
