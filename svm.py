@@ -62,6 +62,8 @@ def SVCPredict(im, model_file='svc.joblib'):
 
 
 # example usage
+'''
 x, y = FormatTrainingData('testing')
 TrainSVC(x, y)
 print(SVCPredict('square10.png'))
+'''

@@ -10,6 +10,7 @@ from pytesseract import image_to_string
 from itertools import product
 
 from sudoku_grid import SudokuGrid
+from svm import SVCPredict
 from image_enhancement import LoadImage, Invert, GaussianBlur
 
 
@@ -55,8 +56,18 @@ def MaxApproxContour(all_contours, hierarchy):
     epsilon = 0.1 * cv2.arcLength(largest_contour, True)
     appr_contour = cv2.approxPolyDP(largest_contour, epsilon, True)
 
+    if len(appr_contour) != 4:
+        # sometimes approxPolyDP detects 5D contour where the 2nd dim
+        # is an extra point. Deletes the 2nd dim & reshapes array to
+        # ensure detecting square
+        appr_contour = delete(appr_contour, 2)
+        appr_contour.resize((4, 1, 2))
+
+    assert len(appr_contour) == 4
+
     points = []
     for i in range(4):
+        # following line gives index error for some reason
         points.append((appr_contour[i][0][0], appr_contour[i][0][1]))
 
     # print(points)
@@ -82,7 +93,7 @@ def DrawRectangle(im, corner_list, save_im=False):
             bottom_right = corner
     rect = cv2.rectangle(im, top_left, bottom_right, (0, 0, 255), 8)
 
-    print('Corner coordinates: (%s %s)' % (top_left, bottom_right))
+    #print('Corner coordinates: (%s %s)' % (top_left, bottom_right))
     if save_im == True:
         cv2.imwrite('rectangle.png', rect)
 
@@ -173,7 +184,7 @@ def OCR(im):
         '-c tessedit_char_whitelist=123456789')
 
     if text == '':
-        print('None')
+        pass
     else:
         print(text)
         exit()
@@ -210,23 +221,32 @@ def OCROnTiles(im, n=9):
         tile = asarray(im.crop(square))  # crops to one square
         # crops to center of tile
         nx, ny = tile.shape
-        center_of_tile = Image.fromarray(CropToCenter(tile, int(0.9*nx),
-                                                      int(0.9*ny)))
-        center_of_tile.save('square%s%s.png' % (w_i, h_i), dpi=(600, 600))
+        # print(nx, ny)
+        '''
+        if (nx, ny) != (100, 100):
+            # need to fix range for array in order to have consistent dim
+            # for input into SVC
+            tile = resize(tile, (100, 100))
+            nx2, ny2 = tile.shape
+            print(nx2, ny2)
+        '''
+        center_of_tile = Image.fromarray(CropToCenter(tile, int(90),
+                                                      int(90)))
+        center_of_tile.save('square%s%s.png' % (w_i, h_i))
 
         num = OCR('square%s%s.png' % (w_i, h_i))
+
+        # flat_grid.append(num[0])
         if num == '':
             flat_grid.add_value(0)
         elif type(num) == int:
             flat_grid.add_value(num)
 
     # delete image files once done running OCR on them
-    '''
     path = os.getcwd()
     filelist = [f for f in os.listdir(path) if f.endswith('.png')]
     for f in filelist:
         os.remove(os.path.join(path, f))
-    '''
     return flat_grid  # unformatted list of values detected
 
 #------------------------------------------------------------------------------
