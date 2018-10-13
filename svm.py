@@ -4,8 +4,9 @@ from sklearn.externals import joblib
 
 from image_enhancement import *
 
-
 #------------------------------------------------------------------------------
+
+
 def FormatTrainingData(training_im_folder):
     '''
     takes in directory of digits, formats into x_train & y_train numpy arrays
@@ -18,16 +19,25 @@ def FormatTrainingData(training_im_folder):
     x_train = []
     y_train = []
 
+    # makes feature & prediction vectors
     folders = os.listdir()
     for folder in folders:
         f_path = os.chdir(folder)
+
         files = [f for f in os.listdir(f_path)]
+        # ensure feature vectors in (100x100), append to x_train
         for f in files:
-            x_train.append(LoadImage(f, grayscale=True))
+            feature_data = LoadImage(f, grayscale=True)
+            dx, dy = feature_data.shape
+            if (dx, dy) != (100, 100):
+                feature_data = resize(feature_data, (100, 100))
+
+            x_train.append(feature_data)
             y_train.append(int(folder))
+
         os.chdir(PATH)
 
-    # need to get x_train in 2D. Should be 100x100
+    # formats feature vectors to 100x100
     x = np.array(x_train)
     n_im, nx, ny = x.shape
 
@@ -53,9 +63,15 @@ def TrainSVC(x_train, y_train):
 def SVCPredict(im, model_file='svc.joblib'):
 
     model = joblib.load(model_file)
+
+    # formats im to proper dim for model
     x = LoadImage(im, grayscale=True)
     nx, ny = x.shape
+    if (nx, ny) != (100, 100):
+        x.resize((100, 100))
+        nx, ny = x.shape
     x_pred = x.reshape((1, nx*ny))
+
     return model.predict(x_pred)
 
 #------------------------------------------------------------------------------
@@ -65,5 +81,5 @@ def SVCPredict(im, model_file='svc.joblib'):
 '''
 x, y = FormatTrainingData('testing')
 TrainSVC(x, y)
-print(SVCPredict('square10.png'))
+print(SVCPredict('square37.png'))
 '''

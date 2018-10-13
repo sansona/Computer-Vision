@@ -182,7 +182,6 @@ def OCR(im):
     text = image_to_string(
         cropped_rect, config='--psm 10 --oem 3' +
         '-c tessedit_char_whitelist=123456789')
-
     if text == '':
         pass
     else:
@@ -222,14 +221,7 @@ def OCROnTiles(im, n=9):
         # crops to center of tile
         nx, ny = tile.shape
         # print(nx, ny)
-        '''
-        if (nx, ny) != (100, 100):
-            # need to fix range for array in order to have consistent dim
-            # for input into SVC
-            tile = resize(tile, (100, 100))
-            nx2, ny2 = tile.shape
-            print(nx2, ny2)
-        '''
+
         center_of_tile = Image.fromarray(CropToCenter(tile, int(90),
                                                       int(90)))
         center_of_tile.save('square%s%s.png' % (w_i, h_i))
