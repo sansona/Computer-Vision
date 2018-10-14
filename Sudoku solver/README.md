@@ -9,5 +9,6 @@ After: ![solved_grid](https://user-images.githubusercontent.com/17757035/4692042
 Issues: 
 1. Image quality deteriorates after various processing and resizing operations. As of now, unable to fix this without affecting consistency of process.
 2. If SVC is unable to perfectly detect the digits in the starting grid, the final solution will be off. If this happens, retraining the SVC using the provided functions in svm.py will be necessary
+3. Solving an nxn sudoku grid is known to be NP-complete. Thus, for any n>9, solving the grid using this project will likely be infeasible. 
 
 Next steps: fix image quality deterioration, work on functionality for solving grids seen in video.
