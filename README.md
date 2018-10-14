@@ -1,8 +1,8 @@
-# Computer-Vision
-Functions for image manipulation/enhancement + misc pipelines for image processing
+# Image Processing Projects
+Collection of functions written to better understand computer vision and image processing. Functions are used throughout different projects.
 
-Image contrast enhancement - see Issues for more example
+1. Image contrast enhancement: simple pipeline for generating contrast in given image
 
-Sudoku solver: in progress
+2. Sudoku solver: solves sudoku puzzle based off input image
 
 
