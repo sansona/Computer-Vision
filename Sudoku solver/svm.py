@@ -5,6 +5,9 @@ from sklearn.externals import joblib
 from image_enhancement import *
 
 #------------------------------------------------------------------------------
+# trained svc using various sudoku puzzles scraped from web. If OCR not
+# working well, recommend retraining svc w/ new training data
+#------------------------------------------------------------------------------
 
 
 def FormatTrainingData(training_im_folder):
@@ -55,7 +58,7 @@ def TrainSVC(x_train, y_train):
     clf = svm.SVC()
     clf.fit(x_train, y_train)
     model = joblib.dump(clf, 'svc.joblib')
-    print('Trained classifier')
+    #print('Finished training')
 
 #------------------------------------------------------------------------------
 
@@ -64,22 +67,23 @@ def SVCPredict(im, model_file='svc.joblib'):
 
     model = joblib.load(model_file)
 
-    # formats im to proper dim for model
+    # formats im to proper shape - 100x100
     x = LoadImage(im, grayscale=True)
     nx, ny = x.shape
     if (nx, ny) != (100, 100):
-        x.resize((100, 100))
+        x = resize(x, (100, 100))
         nx, ny = x.shape
     x_pred = x.reshape((1, nx*ny))
 
+    # so far a single SVC works really well for digit detection purposes. If
+    # find errors in later testing, will update to ensemble method
     return model.predict(x_pred)
 
 #------------------------------------------------------------------------------
 
 
-# example usage
+# to train network
 '''
 x, y = FormatTrainingData('testing')
 TrainSVC(x, y)
-print(SVCPredict('square37.png'))
 '''

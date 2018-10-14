@@ -1,4 +1,3 @@
-
 from itertools import product
 
 
@@ -28,9 +27,11 @@ class SudokuGrid:
 
     #--------------------------------------------------------------------------
 
-    def display_grid(self):
-        for row in self.grid:
-            print(row)
+    def display_grid(self, show=False):
+        if show == True:
+            for row in self.grid:
+                print(row)
+        return self.grid
 
     #--------------------------------------------------------------------------
 
@@ -91,6 +92,10 @@ class SudokuGrid:
                 self.grid[row][col] = 0
 
         return False
+
+    def return_solved_list(self):
+        assert type(self.flat) is list
+        return self.flat
 
 #------------------------------------------------------------------------------
 

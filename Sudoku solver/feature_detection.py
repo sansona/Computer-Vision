@@ -1,13 +1,13 @@
 import os
 import cv2
 
+from itertools import product
 from numpy import *
 from scipy.ndimage import filters, measurements
 from skimage import morphology
-from PIL import Image, ImageFilter
+from PIL import Image, ImageFilter, ImageDraw, ImageFont
 from pylab import *
-from pytesseract import image_to_string
-from itertools import product
+#from pytesseract import image_to_string
 
 from sudoku_grid import SudokuGrid
 from svm import SVCPredict
@@ -93,7 +93,7 @@ def DrawRectangle(im, corner_list, save_im=False):
             bottom_right = corner
     rect = cv2.rectangle(im, top_left, bottom_right, (0, 0, 255), 8)
 
-    #print('Corner coordinates: (%s %s)' % (top_left, bottom_right))
+    # print('Corner coordinates: (%s %s)' % (top_left, bottom_right))
     if save_im == True:
         cv2.imwrite('rectangle.png', rect)
 
@@ -158,35 +158,42 @@ def DrawGridOverImg(im, n=9, save_im=False):
 
     return polylines
 
+
+#------------------------------------------------------------------------------
+def GetSquareImDimensions(im, n):
+    # reduces image to square dimensions to prevent out of bounds error
+    width, height = im.shape[:2]
+    w = int(width / n)
+    h = int(height / n)
+
+    if w < h:
+        h = w
+    else:
+        w = h
+
+    return w, h
+
 #------------------------------------------------------------------------------
 
 
 def OCR(im):
-    # not working, trying different preprocessing
+    '''
+    pytesseract OCR on single digits. Unclear why doesn't work on test images - use quick & easy SVC instead
+    '''
     im = LoadImage(im, grayscale=True)
 
-    '''
-    # preprocessing
-    im = cv2.resize(im, None, fx=10, fy=10, interpolation=cv2.INTER_CUBIC)
-    kernel = ones((5, 5), float32)/25
-    blur = cv2.filter2D(im, -1, kernel)
-    blur_im = Image.fromarray(blur)
-    '''
-    # bounding box for preprocessing
+    # preprocessing - resize, blur, crop to bounding box
     im = cv2.resize(im, None, fx=1.5, fy=1.5, interpolation=cv2.INTER_CUBIC)
     blur = cv2.blur(im, (5, 5))
     cont_im, cont, hi = FindContours(blur)
     list_corn = MaxApproxContour(cont, hi)
     rect, corners = DrawRectangle(blur, list_corn)
     cropped_rect = Image.fromarray(CropImToRectangle(blur, corners))
+
+    # OCR for 1 char, only detect digits 1-9
     text = image_to_string(
         cropped_rect, config='--psm 10 --oem 3' +
         '-c tessedit_char_whitelist=123456789')
-    if text == '':
-        pass
-    else:
-        print(text)
-        exit()
 
     return text
 
@@ -195,23 +202,15 @@ def OCR(im):
 
 def OCROnTiles(im, n=9):
     '''
-    divides grid into nxn, runs OCR on each, returns SudokuGrid list of 
-    detected values 
+    divides grid into nxn, runs OCR on each, returns SudokuGrid list of
+    detected values
     '''
     im = LoadImage(im, grayscale=True)
 
-    width, height = im.shape[:2]
-    w = int(width / n)
-    h = int(height / n)
+    w, h = GetSquareImDimensions(im, n)
 
-    # to avoid out of bounds error, make square
-    if w < h:
-        h = w
-    else:
-        w = h
-
+    starting_board_pos = []  # keeps track of what squares were present @ begin
     flat_grid = SudokuGrid()
-
     # crops images into individual grid squares, runs OCR on each
     im = Image.fromarray(im)
     for w_i, h_i in product(range(n), repeat=2):
@@ -220,26 +219,23 @@ def OCROnTiles(im, n=9):
         tile = asarray(im.crop(square))  # crops to one square
         # crops to center of tile
         nx, ny = tile.shape
-        # print(nx, ny)
-
         center_of_tile = Image.fromarray(CropToCenter(tile, int(90),
                                                       int(90)))
         center_of_tile.save('square%s%s.png' % (w_i, h_i))
 
-        num = OCR('square%s%s.png' % (w_i, h_i))
-
-        # flat_grid.append(num[0])
-        if num == '':
-            flat_grid.add_value(0)
-        elif type(num) == int:
-            flat_grid.add_value(num)
+        # OCR on square, keep track of initial board state
+        num = SVCPredict('square%s%s.png' % (w_i, h_i))
+        if num[0] != 0:
+            # if value already present, keep track of index
+            starting_board_pos.append((w_i, h_i))
+        flat_grid.add_value(num[0])
 
     # delete image files once done running OCR on them
     path = os.getcwd()
     filelist = [f for f in os.listdir(path) if f.endswith('.png')]
     for f in filelist:
         os.remove(os.path.join(path, f))
-    return flat_grid  # unformatted list of values detected
+    return flat_grid, starting_board_pos  # unformatted list of values detected
 
 #------------------------------------------------------------------------------
 
@@ -252,15 +248,38 @@ def SolveOCRGrid(OCR_flat):
     '''
     grid = OCR_flat.to_grid()
     OCR_flat.solve_grid()
-    OCR_flat.display_grid()
+    solved = OCR_flat.display_grid(show=True)
+
+    return solved
 
 #------------------------------------------------------------------------------
 
 
-def FilterSmallObjects(im):
+def DrawSolvedGrid(im, OCR_flat, starting_board_pos, n=9):
     im = LoadImage(im)
-    filtered = morphology.remove_small_objects(im, 50000)
-    cv2.imwrite('filtered.png', filtered)
+    pil_im = Image.fromarray(im)
+    draw = ImageDraw.Draw(pil_im)
+
+    # get list of values for solved grid
+    solved_grid = SolveOCRGrid(OCR_flat)
+    list_solved_num = [num for row in solved_grid for num in row]
+
+    # if using Windows, will have to change this since Windows has different
+    # directories than Linux
+    font = ImageFont.truetype(
+        "/usr/share/fonts/truetype/freefont/FreeMono.ttf", 40)
+
+    # writes solved puzzle on top of cropped image
+    w, h = GetSquareImDimensions(im, n)
+    num_idx = 0
+    for w_i, h_i in product(range(n), repeat=2):
+        num = str(list_solved_num[num_idx])
+        # only write new num, not ones in starting state
+        if (w_i, h_i) not in starting_board_pos:
+            draw.text((h_i*(h) + (45+h/(n/0.5)), w_i*(w) + (45+w/(n/0.5))),
+                      num, fill='green', font=font)
+        num_idx += 1
+    cv2.imwrite('solved.png', np.array(pil_im))
 
 
 #------------------------------------------------------------------------------
@@ -311,7 +330,7 @@ def HoughLineDetection(im):
         gray_im, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
     # inverting & eroding seems to make edge detection work better in most
-    #   test cases
+    # test cases
     otsu_im = 255 - otsu_im
 
     cv2.imwrite('otsu.png', otsu_im)
